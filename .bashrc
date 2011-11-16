@@ -1,23 +1,11 @@
 # ~/.bashrc: executed by bash(1) for non-login shells.
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
-# for examples
 
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 # If not running in a screen, start one up and use it
 #[ -z "$STY" ] && exec screen -xRR
-
-# TMUX
-#if which tmux 2>&1 >/dev/null; then
-#    # if no session is started, start a new session
-#    if test -z ${TMUX}; then
-#        tmux
-#    fi
-#    # when quitting tmux, try to attach
-#    while test -z ${TMUX}; do
-#        tmux attach || break
-#    done
-#fi
+[[ $TERM != "screen" ]] && tmux attach && exit    # $TMUX
 
 shopt -s histappend
 shopt -s checkwinsize
