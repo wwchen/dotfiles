@@ -1,0 +1,96 @@
+defutf8 on
+
+# connect windows to the display so programs like mplayer can find it when
+# we're inside a screen in a terminal application in a graphical environment
+setenv DISPLAY ':0'
+
+# print wackier status messages
+nethack on
+
+# restore window contents after using (e.g.) vi
+altscreen on
+
+
+# Bind F11 and F12 (NOT F1 and F2) to previous and next screen window
+bindkey -k F1 prev
+bindkey -k F2 next
+# bindkey "^[Od" prev  # change window with ctrl-left
+# bindkey "^[Oc" next  # change window with ctrl-right
+
+startup_message off
+defscrollback 5000
+
+backtick 1 0 0 conky --config=/home/wchen/.conkyscreenrc
+#backtick 2 0 600 tail -n 1 /tmp/weather
+#backtick 2 0 0 users | sed 's/ /\n/g' | uniq | wc -l
+backtick 2 30 120 /home/wchen/bin/num_ssh.sh
+backtick 3 60 60 /home/wchen/bin/coretemp.sh
+
+# Window list at the bottom.
+# hardstatus string "%-w%{= BW}%50>%n %t%{-}%+w%<"
+hardstatus on
+hardstatus alwayslastline
+#hardstatus string "%=| %2` | %1` | %l | %{Y}%D %Y-%02m-%02d %0c"
+hardstatus string "%{Y}%D %Y-%02m-%02d %0c %{-} %=| %2` sessions | %1` | %3` | %l |"
+
+caption always "%{Cb} %H %{Wk}| %{Ck}%-w%{Cb}%n %t%{-}%+w%{-Wk}%{Bk} %=%{G}"
+
+# Don't block command output if the terminal stops responding
+# (like if the ssh connection times out for example).
+nonblock on
+
+# bells
+vbell off
+
+# man screen // STRING ESCAPES
+# tabs | sysload | date | hostname
+# caption always "%{Wb} %-w%{+b}%n %t%{-b}%+w %{k}|%{G} %l %{k}|%{Yb} %D %Y-%02m-%02d %0c %{k}| %{Y}%H"
+# %{Wb} = upper is text color, lower is background color
+# date | sysload | tabs
+# caption always "%{Yb} %D %Y-%02m-%02d %0c %{k}|%{G} %l %{k}|%{W} %-w%{+b}%n %t%{-b}%+w"
+# hostname (sysload) <hfill> date
+# caption always "%{= kc}%H (system load: %l)%-21=%{= .m}%D %m.%d.%Y %0c"
+#caption always "%{= kw}%-w%{= BW}%n %t%{-}%+w %-= @%H - %LD %d %LM - %c"
+
+
+# caption description:
+# caption always "%?%F%{-b bc}%:%{-b bb}%?%C|%D|%M %d|%H%?%F%{+u wb}%? %L=%-Lw%45>%{+b by}%n%f* %t%{-}%+Lw%-0<"
+# 
+# Anything I don't describe is treated literally.
+# 
+# %?          - Start of a conditional statement.
+#  %F         - Use this part of the statement if the window has focus (i.e. it
+#               is the only window or the currently active one).
+#  %{-b bc}   - Turn off bold, blue foreground, cyan background.
+# %:          - else
+#  %{-b bb}   - Turn off bold, blue foreground, blue background (this obscures
+#               the text on non-focused windows and just gives a blue line).
+# %?          - End conditional statement.
+#  %C         - time (hh:mm, leading space) in 12 hour format
+#  %D         - Three-letter day-of-week appreviation
+#  %M         - Three-letter month appreviation
+#  %d         - Day of the month
+#  %H         - hostname
+#  %?         - Start of conditional statement.
+#   %F        - Use this part of the statement if the window has focus.
+#   %{+u wb}  - underlined, white foreground, blue background
+#  %?         - End conditional (if not focused, text remaind blue on blue).
+#    %L=      - truncation/padding point.  With the 'L' qualifier, basically
+#               just acts as a reference point.  Further truncation/padding is
+#               done relative to here, not the beginning of the string
+#    %-Lw     - window list up to but not including the current window (-),
+#               show window flags (L)
+#    %45>     - truncation/padding marker; place this point about 45% of the
+#               way into the display area (45)
+#    %{+b by} - add bold (still underlined from before), blue foreground,
+#               yellow background
+#      %n     - number of the current window
+#      %f     - flags for current window
+#      %t     - title of current window
+#    %{-}     - undo last color change (so now we're back to underlined white
+#               on blue)  (technically, this is a pop; a second invocation
+#               would drop things back to unadorned blue on cyan)
+#    %+Lw     - window list from the next window on (-), show window flags (L)
+#    %-0<     - truncation/padding point.  Place this point zero spaces (0)
+#               from the right margin (-).
+
