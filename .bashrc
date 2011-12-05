@@ -115,23 +115,23 @@ fi
 #PS1='[\[$(branch_color)\]$(parse_git_branch)\[${c_sgr0}\]] ${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 
 USERCLR='01;32m'
-HOSTCLR="01;31m"
+HOSTCLR="01;30m"
 DIRCLR='01;34m'
 
-if command_exists md5sum; then
-  md5="md5sum"
-elif command_exists md5; then
-  md5="md5"
-fi
-if [ -n $md5 ]; then
-  hosthash=$(hostname | $md5 | sed 's/[^0-9]//g')
-  userhash=$(whoami   | $md5 | sed 's/[^0-9]//g')
-  let "hostcolor = ${hosthash:0:8} % 7 + 30"
-  let "usercolor = ${userhash:0:8} % 7 + 30"
-  HOSTCLR="01;${hostcolor}m"
-  USERCLR="01;${usercolor}m"
-  unset hosthash hostcolor userhash usercolor
-fi
+# if command_exists md5sum; then
+#   md5="md5sum"
+# elif command_exists md5; then
+#   md5="md5"
+# fi
+# if [ -n $md5 ]; then
+#   hosthash=$(hostname | $md5 | sed 's/[^0-9]//g')
+#   userhash=$(whoami   | $md5 | sed 's/[^0-9]//g')
+#   let "hostcolor = ${hosthash:0:4} % 7 + 30"
+#   let "usercolor = ${userhash:0:4} % 7 + 30"
+#   HOSTCLR="01;${hostcolor}m"
+#   USERCLR="01;${usercolor}m"
+#   unset hosthash hostcolor userhash usercolor
+# fi
 
 PS1='[\[$(branch_color)\]$(parse_git_branch)\[${c_sgr0}\]] ${debian_chroot:+($debian_chroot)}\[\033[$USERCLR\]\u\[\033[00m\]@\[\033[$HOSTCLR\]\h\[\033[00m\]:\[\033[$DIRCLR\]\w\[\033[00m\]\$ '
 #PS1='\[\e]0;\u@\h: \w\a\]${debian_chroot:+($debian_chroot)}\[\033[$USERCLR\]\u\[\033[00m\]@\[\033[$HOSTCLR\]\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
