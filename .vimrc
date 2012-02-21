@@ -3,6 +3,7 @@
 "
 " Some good articles to read:
 "  - http://mislav.uniqpath.com/2011/12/vim-revisited/
+"  - https://github.com/eric-wood/dotfiles/blob/master/.vimrc
 "
 
 syntax on
@@ -11,7 +12,10 @@ set showcmd                     " display incomplete commands
 filetype plugin indent on       " load file type plugins + indentation
 colorscheme elflord "desert busybee
 set cursorline
-let g:tex_flavor='latex'
+
+set laststatus=2
+let g:smartusline_hi_normal = 'guifg=#CCCCCC guibg=#202020 ctermfg=white ctermbg=darkgray'
+
 
 "" Whitespace
 set nowrap
@@ -39,17 +43,21 @@ nmap <silent> <leader>b :BundleInstall<CR>
 nmap <silent> <leader>B :BundleInstall!<CR>
 nmap <silent> <leader>v :set pastetoggle<CR>
 nmap <silent> <leader>s :setlocal spell! spelllang=en_us<CR>
+nmap <silent> <leader>ev :e ~/.vimrc<CR>
+nmap <silent> <leader>sv :source ~/.vimrc<CR>
 
 "
 set nobackup
 set nowritebackup
 
 
-if &ft == "tex"
+"let g:tex_flavor='latex'
+"if &ft == "tex"
   " Render the current LaTeX file and open the resulting PDF
-  setlocal spell! spelllang=en_us
-  nmap <silent> <leader>w :!pdflatex '%:p' && pdflatex '%:p' && pdflatex '%:p' && open '%:p:r.pdf' && rm '%:p:r.log' && rm '%:p:r.aux'<CR><CR>
-endif
+"  setlocal spell! spelllang=en_us
+  nmap <silent> <leader>w :w !pdflatex '%:p' && pdflatex '%:p' && pdflatex '%:p' && rm '%:p:r.log' && rm '%:p:r.aux'<CR><CR>
+au BufWinEnter *.txt,*.tex set spell  " temporary hack
+"endif
 
 
 """
@@ -70,6 +78,8 @@ Bundle 'vim-scripts/haskell.vim'
 Bundle 'hail2u/vim-css3-syntax'
 Bundle 'tpope/vim-markdown'
 Bundle 'mikewest/vimroom'
+"Bundle 'kien/ctrlp.vim'
+"http://github.com/kien/ctrlp.vim/zipball/master
 
 filetype plugin indent on      " required! 
 
