@@ -74,7 +74,7 @@ call vundle#rc()
 
 " let Vundle manage Vundle
 " required! 
-Bundle 'gmarik/vundle'	
+Bundle 'gmarik/vundle'
 Bundle 'L9'
 Bundle 'FuzzyFinder'
 Bundle 'nathanaelkane/vim-indent-guides'
@@ -90,6 +90,7 @@ Bundle 'tomasr/molokai'
 "Bundle 'pangloss/vim-javascript'
 "Bundle 'cakebaker/scss-syntax.vim'
 
+filetype plugin indent on                     " required!
 "====================================
 
 
