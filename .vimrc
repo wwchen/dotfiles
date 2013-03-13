@@ -6,97 +6,100 @@
 "  - https://github.com/eric-wood/dotfiles/blob/master/.vimrc
 "
 
-syntax on
+set nocompatible                " not Vi-compatible
+set nolist
+
+"" Display
 set encoding=utf-8
+set number                      " show line number
+set linebreak
 set showcmd                     " display incomplete commands
-filetype plugin indent on       " load file type plugins + indentation
+set textwidth=0
+set wrapmargin=0
+
 colorscheme elflord "desert busybee
+
+"" Code
+syntax on
+filetype plugin indent on       " load file type plugins + indentation
 set cursorline
 
-set laststatus=2
-let g:smartusline_hi_normal = 'guifg=#CCCCCC guibg=#202020 ctermfg=white ctermbg=darkgray'
-
-
-"" Whitespace
-set nowrap
-set tabstop=2 shiftwidth=2
+"" Spacing and Indentation
+set autoindent
 set expandtab
-set backspace=indent,eol,start  " backspace through everything in insert mode
+set tabstop=2
+set shiftwidth=2
+"set backspace=indent,eol,start  " backspace through everything in insert mode
 
 "" Searching
 set showmatch                   " Show parentheses matching
 set smartcase
 set ignorecase                  " searches are case insensitive...
 set ic                          " ... unless they contain at least one capital letter
+set incsearch                   " matched string is highlighted
+set hlsearch                    " hilight search
 
-"" Indenting
-set autoindent
-set cindent
-set number
+"" Bottom menubar
+set ruler                       " show row,col in statusbar
+set wildmenu                    " tab completion with possible matches shown above
+set laststatus=2
+let g:smartusline_hi_normal = 'guifg=#CCCCCC guibg=#202020 ctermfg=white ctermbg=darkgray'
 
-"" Quick shortcuts
+
+"====================================
+" <leader> keystrokes and remappings
+"====================================
 nmap <silent> <leader>i :IndentGuidesToggle<CR>
-nmap <leader>o :FufCoverageFile<CR>
+nmap <silent> <leader>p :NERDTreeToggle<CR>          " nerd tree
+nmap <leader>o :FufCoverageFile<CR>                  " fuzzy search
 nmap <silent> <leader>r :FufRenewCache<CR>
-nmap <silent> <leader>p :NERDTreeToggle<CR>
-nmap <silent> <leader>b :BundleInstall<CR>
-nmap <silent> <leader>B :BundleInstall!<CR>
+nmap <silent> <leader>b :BundleInstall<CR>           " vundle
+nmap <silent> <leader>B :BundleInstall!<CR>          " vundle
 nmap <silent> <leader>v :set pastetoggle<CR>
 nmap <silent> <leader>s :setlocal spell! spelllang=en_us<CR>
 nmap <silent> <leader>ev :e ~/.vimrc<CR>
 nmap <silent> <leader>sv :source ~/.vimrc<CR>
 
-"
-set nobackup
-set nowritebackup
-
-
-"let g:tex_flavor='latex'
-"if &ft == "tex"
-  " Render the current LaTeX file and open the resulting PDF
-"  setlocal spell! spelllang=en_us
-  nmap <silent> <leader>w :w !pdflatex '%:p' && pdflatex '%:p' && pdflatex '%:p' && rm '%:p:r.log' && rm '%:p:r.aux'<CR><CR>
-au BufWinEnter *.txt,*.tex set spell  " temporary hack
-"endif
-
-
-"""
-" vundle stuff
+"====================================
+" Vundle
+"====================================
+" These need to be set up first, otherwise settings that
+" refer to certain plugins aren't loaded and we get errors
 " To get started, clone the repo: git clone http://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
-"""
-filetype off                   " required!
+
+filetype off
+
 set rtp+=~/.vim/bundle/vundle/
 call vundle#rc()
 
-Bundle 'gmarik/vundle'
-Bundle 'nathanaelkane/vim-indent-guides'
-Bundle 'scrooloose/nerdtree'
-Bundle 'vim-ruby/vim-ruby'
+" let Vundle manage Vundle
+" required! 
+Bundle 'gmarik/vundle'	
 Bundle 'L9'
 Bundle 'FuzzyFinder'
-Bundle 'vim-scripts/haskell.vim'
-Bundle 'hail2u/vim-css3-syntax'
-Bundle 'tpope/vim-markdown'
-Bundle 'mikewest/vimroom'
+Bundle 'nathanaelkane/vim-indent-guides'
+Bundle 'scrooloose/nerdtree'
+Bundle 'tpope/vim-rails'
+"Bundle 'tpope/vim-markdown'
+"Bundle 'mikewest/vimroom'
+Bundle 'vim-ruby/vim-ruby'
+Bundle 'tomasr/molokai'
+"Bundle 'ChrisYip/Better-CSS-Syntax-for-Vim'
 "Bundle 'kien/ctrlp.vim'
-"http://github.com/kien/ctrlp.vim/zipball/master
+"Bundle 'Lokaltog/vim-powerline'
+"Bundle 'pangloss/vim-javascript'
+"Bundle 'cakebaker/scss-syntax.vim'
 
-filetype plugin indent on      " required! 
-
-
-
-
+"====================================
 
 
 
-"""
-" my stuff
-"""
+"====================================
+" Other unused neat stuff
+"====================================
 
 "map <C-j> <C-w>j<C-w>_
 "map <C-k> <C-w>k<C-w>_
-
-"set statusline=%{fugitive#statusline()}
 
 "au FileType tex map <buffer> <F7> :w<CR>:!pdflatex %<CR>
 "au FileType c   map <buffer> <F7> :make<CR>
@@ -119,9 +122,9 @@ filetype plugin indent on      " required!
 
 
 
-"""
+"====================================
 " Tips
-"""
+"====================================
 
 "http://stackoverflow.com/questions/1269603/to-switch-from-vertical-split-to-horizontal-split-fast-in-vim
 "To change two vertically split windows to horizonally split
