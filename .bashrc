@@ -51,7 +51,7 @@ export EDITOR=vim
 # aliases
 ##
 # System
-alias ls='ls -G'
+alias ls='ls -G --color=auto'
 alias ll='ls -lhG'
 alias sl='ls'
 alias l='ls'
