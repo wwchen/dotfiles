@@ -93,7 +93,7 @@ USERCLR='01;32m'
 HOSTCLR="01;30m"
 DIRCLR='01;34m'
 
-PS1='[\[$(branch_color)\]$(parse_git_branch)\[${c_sgr0}\]] ${debian_chroot:+($debian_chroot)}\[\033[$USERCLR\]\u\[\033[00m\]@\[\033[$HOSTCLR\]\h\[\033[00m\]:\[\033[$DIRCLR\]\w\[\033[00m\]\$ '
+PS1='[\[$(branch_color)\]$(parse_git_branch)\[${c_sgr0}\]\e[0m] ${debian_chroot:+($debian_chroot)}\[\033[$USERCLR\]\u\[\033[00m\]@\[\033[$HOSTCLR\]\h\[\033[00m\]:\[\033[$DIRCLR\]\w\[\033[00m\]\$ '
 
 # ---------------------------
 
