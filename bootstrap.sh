@@ -1,62 +1,85 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-# Iter 1 - back up originals, symlink files to github
+cwd="$(dirname $(readlink -f ${BASH_SOURCE[0]}))"
 
-shopt -s dotglob # We want to glob dotfiles!
+function sym-install {
+  src=$1
+  dst=$2
+  [[ -z $dst ]] && dst=$src
+  [[ -f "$HOME/$dst" ]] && mv "$HOME/$dst" "$HOME/$dst-"
+  ln -s "$cwd/$src" "$HOME/$dst"
+}
 
-apps=(bash vim git rails tmux irssi)
+function install {
+  src=$1
+  dst=$2
+  [[ -z $dst ]] && dst=$src
+  [[ -f "$HOME/$dst" ]] && mv "$HOME/$dst" "$HOME/$dst-"
+  cp -a "$cwd/$src" "$HOME/$dst"
+}
 
-##
-# Functions
-##
-
-# Symlink everything from here to whatever the current homedir is
-function preserve
-{
-  if [[ -f $1 ]]; then
-    mv -i $1 $1.orig
+function setup {
+  name=$1
+  echo -en "\e[33mSet up $1? [Yn]\e[0m "
+  read ans
+  [[ -z $ans ]] && ans="y"
+  if [[ $ans == "y" || $ans == "Y" ]]; then
+    # yes
+    echo yes
+  elif [[ $ans == "n" || $ans == "N" ]]; then
+    # no
+    echo no
+  else
+    # loop
+    echo "Invalid response"
+    setup $1
   fi
 }
 
-##
-# Go through all da apps!
-##
-for app in "${apps[@]}"; do
-  if [[ $app == "bash" ]]; then
-    preserve .bashrc
-    cp -a .bashrc ~
-    break
-  fi
-  if [[ $app == "vim" ]]; then
-    preserve .vimrc
-    cp -a .vimrc ~
-mkdir ~/.vim
-git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
-# put in the vundle part
-vim +BundleInstall +qall
-# put in the shortcuts
-    break
-  fi
-done
+function notice {
+  string=$*
+  echo -e "\e[33m$string"
+  sleep 2
+}
 
-# Glob all dotfiles with a few exceptions
-# Now I don't have to update this script much in the future!
-#preserve_stuff !(.git|.gitignore|*.swp|README.md|bootstrap.sh|bash_shenanigans.sh|.irssi)
-preserve_stuff .screenrc
-preserve_stuff .tmux.conf
-preserve_stuff .vim
-preserve_stuff .vimrc
-preserve_stuff .gitignore_global
+# check if it is debian we are running herer
+
+notice "Installing essential packages"
+sudo apt-get update
+sudo apt-get install git vim curl tmux uprecords-cgi vnstat
+
+notice "Setup bash"
+sym-install .bash_profile
+sym-install .bashrc
+touch $HOME/.bash_custom
+notice "Put your custom crap in .bash_custom"
+# if we're setting up tmux and ssh, automatically attach the tmux session to bash profile
+
+notice "Setup git"
+sym-install .gitignore_global
+git config --global user.name William Chen
+git config --global user.email williamchen16@gmail.com
+git config --global help.autocorrect 1
 git config --global core.excludesfile ~/.gitignore_global
+#http://adit.io/posts/2013-08-16-five-useful-git-tips.html
 
-# Now for the magic where I append my bash stuff onto 
-# the existing bash_profile without causing problems (in theory...)
-if ! grep -q ". $PWD/bash_shenanigans.sh" ~/.bash_profile 
-then
-	echo "Appending bash_shenanigans.sh to ~/.bash_profile"
-	echo ". $PWD/bash_shenanigans.sh" >> ~/.bash_profile
-fi
+notice "Setup tmux"
+sym-nstall .tmux.conf
 
-# vim stuff
-#git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
-#vim +BundleInstall +qall
+notice "Setup ruby with rails"
+curl -L https://get.rvm.io | bash -s stable --rails
+
+echo "Setup vim with vundle"
+update-alternatives --config editor
+sym-install .vimrc
+git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
+vim +BundleInstall +qall
+
+echo "Setup ssh"
+ssh-keygen
+cat .ssh/id_rsa.pub >> "$cwd/ssh-authkeys"
+install ssh-authkeys .ssh/authorized_keys
+
+echo "Setup iptables"
+
+echo "Colorize root bash"
