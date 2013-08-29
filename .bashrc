@@ -95,3 +95,4 @@ PS1='[\[$(branch_color)\]$(parse_git_branch)\[${c_sgr0}\]\e[0m] ${debian_chroot:
 
 # ---------------------------
 
+[[ -s "$HOME/.bash_custom" ]] && source "$HOME/.bash_custom"
