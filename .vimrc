@@ -65,17 +65,18 @@ nmap <silent> <leader>sv :source ~/.vimrc<CR>
 "====================================
 " These need to be set up first, otherwise settings that
 " refer to certain plugins aren't loaded and we get errors
-" To get started, clone the repo: git clone http://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
+" To get started, execute: git clone https://github.com/gmarik/Vundle.vim.git ~/.vim/bundle/Vundle.vim && vim +PluginInstall +qall
 
-filetype off
+set nocompatible              " be iMproved, required
+filetype off                  " required
 
-set rtp+=~/.vim/bundle/vundle/
-call vundle#rc()
+" set the runtime path to include Vundle and initialize
+set rtp+=~/.vim/bundle/Vundle.vim
+call vundle#begin()
 
-" let Vundle manage Vundle
-" required! 
-Bundle 'gmarik/vundle'
-Bundle 'L9'
+Plugin 'gmarik/Vundle.vim'
+Plugin 'tpope/vim-fugitive'
+Plugin 'L9'
 Bundle 'FuzzyFinder'
 Bundle 'nathanaelkane/vim-indent-guides'
 Bundle 'scrooloose/nerdtree'
@@ -90,7 +91,19 @@ Bundle 'tomasr/molokai'
 "Bundle 'pangloss/vim-javascript'
 "Bundle 'cakebaker/scss-syntax.vim'
 
-filetype plugin indent on                     " required!
+call vundle#end()            " required
+filetype plugin indent on    " required
+" To ignore plugin indent changes, instead use:
+"filetype plugin on
+"
+" Brief help
+" :PluginList       - lists configured plugins
+" :PluginInstall    - installs plugins; append `!` to update or just :PluginUpdate
+" :PluginSearch foo - searches for foo; append `!` to refresh local cache
+" :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
+"
+" see :h vundle for more details or wiki for FAQ
+" Put your non-Plugin stuff after this line
 "====================================
 
 
