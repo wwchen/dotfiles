@@ -35,3 +35,13 @@ git config --global alias.c checkout
 git config --global user.name "William Chen""
 git config --global user.email github@iamchen.com
 ```
+
+## mac apps
+### app store
+- magnet
+
+### others
+- sublime
+- 1password
+- istat pro
+- 
