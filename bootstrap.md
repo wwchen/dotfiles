@@ -1,9 +1,3 @@
-# brew
-```
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-
 ## vim
 ```
 git clone --depth=1 https://github.com/amix/vimrc.git ~/.vim_runtime
@@ -33,6 +27,11 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 plugins=(git zsh-autosuggestions)
 alias reload='source ~/.zshrc'
 setopt no_share_history
+```
+
+# brew
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
 ## git setup
