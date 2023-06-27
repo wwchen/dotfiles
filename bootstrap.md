@@ -26,7 +26,8 @@ git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-m
 ZSH_THEME="powerlevel10k/powerlevel10k"
 plugins=(git zsh-autosuggestions)
 ZSH_AUTOSUGGEST_STRATEGY=(history completion)
-bindkey '^?^I' autosuggest-accept     # <opt-tab>; `brew install showkey`
+# https://unix.stackexchange.com/questions/116562/key-bindings-table?rq=1
+bindkey '^?^I' autosuggest-accept     # <opt-tab>
 alias reload='source ~/.zshrc'
 setopt no_share_history
 ```
