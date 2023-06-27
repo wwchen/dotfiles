@@ -47,7 +47,8 @@ git config --global user.email github@iamchen.com
 
 ## mac apps
 ### app store
-- magnet
+- [magnet](https://apps.apple.com/us/app/magnet/id441258766?mt=12), or
+- [rectangle](https://rectangleapp.com/)
 - [amphetamine](https://apps.apple.com/us/app/amphetamine/id937984704?mt=12)
 
 ### others
