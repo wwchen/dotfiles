@@ -48,6 +48,7 @@ git config --global user.email github@iamchen.com
 ## mac apps
 ### app store
 - magnet
+- [amphetamine](https://apps.apple.com/us/app/amphetamine/id937984704?mt=12)
 
 ### others
 - sublime
