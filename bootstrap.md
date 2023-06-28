@@ -41,7 +41,7 @@ setopt no_share_history
 ```
 git config --global alias.s status
 git config --global alias.c checkout
-git config --global alias.pr "push --set-upstream origin $(git branch --show-current)"
+git config --global alias.pr "push --set-upstream origin HEAD"
 git config --global user.name "William Chen""
 git config --global user.email github@iamchen.com
 ```
