@@ -40,6 +40,7 @@ setopt no_share_history
 ## git setup
 ```
 git config --global alias.s status
+git config --global alias.b branch
 git config --global alias.c checkout
 git config --global alias.pr "push --set-upstream origin HEAD"
 git config --global user.name "William Chen""
