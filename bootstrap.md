@@ -30,6 +30,9 @@ ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 bindkey '^?^I' autosuggest-accept     # <opt-tab>
 alias reload='source ~/.zshrc'
 setopt no_share_history
+setopt no_nomatch
+setopt no_extended_glob
+setopt no_glob
 ```
 
 # brew
