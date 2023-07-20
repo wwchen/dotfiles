@@ -21,6 +21,17 @@ git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 ```
 
+# zsh plugin: gradle-completion
+```
+git clone https://github.com/gradle/gradle-completion ~/.oh-my-zsh/plugins/gradle-completion
+```
+
+`.zshrc`:
+```
+plugins+=(gradle-completion)
+export PATH=".:$PATH"
+```
+
 `.zshrc`:
 ```
 ZSH_THEME="powerlevel10k/powerlevel10k"
