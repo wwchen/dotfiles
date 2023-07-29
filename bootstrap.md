@@ -46,6 +46,12 @@ setopt no_extended_glob
 setopt no_glob
 ```
 
+## Sublime `subl` installation
+https://www.sublimetext.com/docs/command_line.html#mac
+```
+echo 'export PATH="/Applications/Sublime Text.app/Contents/SharedSupport/bin:$PATH"' >> ~/.zprofile
+```
+
 # brew
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
