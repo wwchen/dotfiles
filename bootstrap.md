@@ -60,13 +60,17 @@ echo "xorb-" > ~/.slack_busybee_alert_token.txt
 ```
 
 ```
+### PERSONAL RELATED
 function slack-alert {
     [[ -z $* ]] && echo "enter a message" && return 1
+    # https://api.slack.com/apps/A05JDQT65LZ/install-on-team
     token="$(cat ~/.slack_busybee_alert_token.txt)"
     text="$*"
     channel="alerts"
-    response=$(curl -s -d "text=$text" -d "channel=$channel" -d "token=$token" -X POST https://slack.com/api/chat.      postMessage | jq .ok)
-    echo "ok: $response"
+    raw_response=$(curl -s -d "text=$text" -d "channel=$channel" -d "token=$token" -X POST https://slack.com/api/chat.postMessage)
+    ok=$(echo "$raw_response" | jq .ok)
+    echo "success: $ok"
+    [[ $ok == "false" ]] && echo $raw_response
 }
 ```
 
