@@ -40,6 +40,7 @@ ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 # https://unix.stackexchange.com/questions/116562/key-bindings-table?rq=1
 bindkey '^?^I' autosuggest-accept     # <opt-tab>
 alias reload='source ~/.zshrc'
+alias zshrc='vim ~/.zshrc && reload'
 setopt no_share_history
 setopt no_nomatch
 setopt no_extended_glob
@@ -51,6 +52,24 @@ https://www.sublimetext.com/docs/command_line.html#mac
 ```
 echo 'export PATH="/Applications/Sublime Text.app/Contents/SharedSupport/bin:$PATH"' >> ~/.zprofile
 ```
+
+## Simple slack cli messenger
+https://api.slack.com/apps/A05JDQT65LZ/install-on-team
+```
+echo "xorb-" > ~/.slack_busybee_alert_token.txt
+```
+
+```
+function slack-alert {
+    [[ -z $* ]] && echo "enter a message" && return 1
+    token="$(cat ~/.slack_busybee_alert_token.txt)"
+    text="$*"
+    channel="alerts"
+    response=$(curl -s -d "text=$text" -d "channel=$channel" -d "token=$token" -X POST https://slack.com/api/chat.      postMessage | jq .ok)
+    echo "ok: $response"
+}
+```
+
 
 # brew
 ```
