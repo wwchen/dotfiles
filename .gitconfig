@@ -3,3 +3,12 @@
 	email = williamchen16@gmail.com
 [push]
 	default = simple
+[alias]
+     s = status
+     b = branch
+     c = checkout
+     m = commit --amend
+     up = !git add . && git commit --amend
+     pr = push --set-upstream origin HEAD
+     bb = for-each-ref --sort='authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads
+     changed = !git diff --name-only $(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')... | cat
