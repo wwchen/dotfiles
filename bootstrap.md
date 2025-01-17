@@ -91,6 +91,13 @@ git config --global user.name "William Chen""
 git config --global user.email github@iamchen.com
 ```
 
+## iterm setup
+Profiles > General > Working Directory > Reuse previous session's directory
+Profiles > Keys > Key Mappings > Presets > Natural Text Editing
+Profiles > Keys > Key Mappings > Presets > Delete key sends ^H
+Appearance > Dimming > (uncheck) Dim inactive split panes
+General > Selection > (uncheck) Clicking on a command selects it to restrict Find and Filter
+
 ## mac apps
 ### app store
 - [magnet](https://apps.apple.com/us/app/magnet/id441258766?mt=12), or
