@@ -1,39 +1,42 @@
-## vim
+# vim
 ```
 git clone --depth=1 https://github.com/amix/vimrc.git ~/.vim_runtime
 sh ~/.vim_runtime/install_awesome_vimrc.sh
 ```
 
+# brew
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
 
-## zsh set up
-# oh-my-zsh
+# zsh set up
+## oh-my-zsh
 ```
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
-# zsh theme: powerlevel
+### zsh theme: powerlevel
+[romkatv/powerlevel10k](https://github.com/romkatv/powerlevel10k?tab=readme-ov-file#oh-my-zsh)
 ```
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
 ```
 
-# zsh plugin: zsh-autosuggestion
+### zsh plugin: zsh-autosuggestion
+[zsh-autosuggestion](https://github.com/zsh-users/zsh-autosuggestions/blob/master/INSTALL.md#oh-my-zsh)
 ```
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 ```
 
-# zsh plugin: gradle-completion
+### zsh plugin: gradle-completion
 ```
 git clone https://github.com/gradle/gradle-completion ~/.oh-my-zsh/plugins/gradle-completion
 ```
 
-`.zshrc`:
+## `.zshrc`
 ```
 plugins+=(gradle-completion)
 export PATH=".:$PATH"
-```
 
-`.zshrc`:
-```
 ZSH_THEME="powerlevel10k/powerlevel10k"
 plugins=(git zsh-autosuggestions)
 ZSH_AUTOSUGGEST_STRATEGY=(history completion)
@@ -47,10 +50,14 @@ setopt no_extended_glob
 setopt no_glob
 ```
 
-## Sublime `subl` installation
-https://www.sublimetext.com/docs/command_line.html#mac
+### attentive shortcuts
 ```
-echo 'export PATH="/Applications/Sublime Text.app/Contents/SharedSupport/bin:$PATH"' >> ~/.zprofile
+# attentive
+alias code="cd ~/code/attentive/code"
+export ARTIFACTORY_USER="williamc@attentivemobile.com"
+export ARTIFACTORY_API_KEY="$(security find-generic-password -s 'Attentive Artifactory' -w)"
+alias attn-aws='/Users/wc/.aws_cli_script/.auto_configure_aws_cli_sso_roles.sh'
+alias ovpn="'/Applications/OpenVPN Connect/OpenVPN Connect.app/contents/MacOS/OpenVPN Connect' && op item get OpenVPN --otp | pbcopy"
 ```
 
 ## Simple slack cli messenger
@@ -74,13 +81,14 @@ function slack-alert {
 }
 ```
 
-
-# brew
+## Sublime `subl` installation
+https://www.sublimetext.com/docs/command_line.html#mac
 ```
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'export PATH="/Applications/Sublime Text.app/Contents/SharedSupport/bin:$PATH"' >> ~/.zprofile
 ```
 
-## git setup
+
+# git setup
 ```
 git config --global alias.s status
 git config --global alias.b branch
@@ -91,6 +99,8 @@ git config --global user.name "William Chen""
 git config --global user.email github@iamchen.com
 ```
 
+# mac apps
+
 ## iterm setup
 Profiles > General > Working Directory > Reuse previous session's directory
 Profiles > Keys > Key Mappings > Presets > Natural Text Editing
@@ -98,7 +108,6 @@ Profiles > Keys > Key Mappings > Presets > Delete key sends ^H
 Appearance > Dimming > (uncheck) Dim inactive split panes
 General > Selection > (uncheck) Clicking on a command selects it to restrict Find and Filter
 
-## mac apps
 ### app store
 - [magnet](https://apps.apple.com/us/app/magnet/id441258766?mt=12), or
 - [rectangle](https://rectangleapp.com/)
