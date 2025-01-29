@@ -60,7 +60,7 @@ export ARTIFACTORY_USER="williamc@attentivemobile.com"
 export ARTIFACTORY_API_KEY="$(security find-generic-password -s 'Attentive Artifactory' -w)"
 alias attn-aws='/Users/wc/.aws_cli_script/.auto_configure_aws_cli_sso_roles.sh'
 alias ovpn="'/Applications/OpenVPN Connect/OpenVPN Connect.app/contents/MacOS/OpenVPN Connect' && op item get OpenVPN --otp | pbcopy"
-alias owners='f() { grep -vE "^/(contract|python|[^a-z])" code/attentive/code/CODEOWNERS | grep -Ei "^/[a-z0-9-]*$1[^/]*/" }; f'
+alias owners='f() { grep -vE "^/(contract|python|[^a-z])" code/attentive/code/CODEOWNERS | grep -Ei "^/[a-z0-9-]*$1[a-z0-9-]*" }; f'
 ```
 
 ## Simple slack cli messenger
