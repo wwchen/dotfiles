@@ -17,23 +17,23 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 
 ### zsh theme: powerlevel
 [romkatv/powerlevel10k](https://github.com/romkatv/powerlevel10k?tab=readme-ov-file#oh-my-zsh)
-```
+``` bash
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
 ```
 
 ### zsh plugin: zsh-autosuggestion
 [zsh-autosuggestion](https://github.com/zsh-users/zsh-autosuggestions/blob/master/INSTALL.md#oh-my-zsh)
-```
+``` bash
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 ```
 
 ### zsh plugin: gradle-completion
-```
+``` bash
 git clone https://github.com/gradle/gradle-completion ~/.oh-my-zsh/plugins/gradle-completion
 ```
 
 ## `.zshrc`
-```
+``` bash
 plugins+=(gradle-completion)
 export PATH=".:$PATH"
 
@@ -42,8 +42,10 @@ plugins=(git zsh-autosuggestions)
 ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 # https://unix.stackexchange.com/questions/116562/key-bindings-table?rq=1
 bindkey '^?^I' autosuggest-accept     # <opt-tab>
+
 alias reload='source ~/.zshrc'
 alias zshrc='vim ~/.zshrc && reload'
+
 setopt no_share_history
 setopt no_nomatch
 setopt no_extended_glob
@@ -51,7 +53,7 @@ setopt no_glob
 ```
 
 ### attentive shortcuts
-```
+``` bash
 # attentive
 alias code="cd ~/code/attentive/code"
 export ARTIFACTORY_USER="williamc@attentivemobile.com"
@@ -62,11 +64,11 @@ alias ovpn="'/Applications/OpenVPN Connect/OpenVPN Connect.app/contents/MacOS/Op
 
 ## Simple slack cli messenger
 https://api.slack.com/apps/A05JDQT65LZ/install-on-team
-```
+``` bash
 echo "xorb-" > ~/.slack_busybee_alert_token.txt
 ```
 
-```
+``` bash
 ### PERSONAL RELATED
 function slack-alert {
     [[ -z $* ]] && echo "enter a message" && return 1
@@ -83,13 +85,13 @@ function slack-alert {
 
 ## Sublime `subl` installation
 https://www.sublimetext.com/docs/command_line.html#mac
-```
+``` bash
 echo 'export PATH="/Applications/Sublime Text.app/Contents/SharedSupport/bin:$PATH"' >> ~/.zprofile
 ```
 
 
 # git setup
-```
+``` bash
 git config --global alias.s status
 git config --global alias.b branch
 git config --global alias.c checkout
