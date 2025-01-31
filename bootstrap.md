@@ -59,8 +59,16 @@ alias code="cd ~/code/attentive/code"
 export ARTIFACTORY_USER="williamc@attentivemobile.com"
 export ARTIFACTORY_API_KEY="$(security find-generic-password -s 'Attentive Artifactory' -w)"
 alias attn-aws='/Users/wc/.aws_cli_script/.auto_configure_aws_cli_sso_roles.sh'
-alias ovpn="'/Applications/OpenVPN Connect/OpenVPN Connect.app/contents/MacOS/OpenVPN Connect' && op item get OpenVPN --otp | pbcopy"
-alias owners='f() { grep -vE "^/(contract|python|[^a-z])" code/attentive/code/CODEOWNERS | grep -Ei "^/[a-z0-9-]*$1[a-z0-9-]*" }; f'
+ alias ovpn="op item get OpenVPN --otp | pbcopy && '/Applications/OpenVPN Connect/OpenVPN Connect.app/contents/MacOS/OpenVPN Connect'"
+ alias owners='f() { grep -vE "^/(contract|python|[^a-z])" ~/code/attentive/code/CODEOWNERS | grep -Ei "^/[a-z0-9-]*$1[a-z0-9-]*" }; f'
+ alias sdm-all='sdm login --email williamc@attentivemobile.com && sdm connect -a'
+
+ cid() {
+     sql='select id, name, display_name, domain from companies where '
+     [[ $1 =~ ^[0-9]+$ ]] && sql="$sql id = $1" || sql="$sql name like '%"$1"%'"
+     [[ $2 == '-d' ]] && port=13306 || port=13377
+     mysql -uuser -pp -h 127.0.0.1 -P $port -D attentive -e "$sql"
+ }
 ```
 
 ## Simple slack cli messenger
