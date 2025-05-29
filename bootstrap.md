@@ -70,6 +70,7 @@ cid() {
     mysql -uuser -pp -h 127.0.0.1 -P $port -D attentive -e "$sql"
 }
 
+# https://ixday.github.io/post/bash_base64_padding/
 decode() {
     awk -vstr="${1}" 'BEGIN {l=length(str)+2; print substr(str"==",1,l-l%4)}' \
         | base64 -d \
