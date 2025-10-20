@@ -3,10 +3,17 @@
 git clone --depth=1 https://github.com/amix/vimrc.git ~/.vim_runtime
 sh ~/.vim_runtime/install_awesome_vimrc.sh
 ```
+[To update the vim plugins](https://github.com/amix/vimrc?tab=readme-ov-file#how-to-update-to-latest-version), run `python update_plugins.py` in `~/.vim_runtime` dir
 
 # brew
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+# pyenv setup
+[Follow installation from pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#macos)
+```
+brew install pyenv
 ```
 
 # zsh set up
