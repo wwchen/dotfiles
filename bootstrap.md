@@ -31,7 +31,9 @@ git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$
 ### zsh plugin: zsh-autosuggestion
 [zsh-autosuggestion](https://github.com/zsh-users/zsh-autosuggestions/blob/master/INSTALL.md#oh-my-zsh)
 ``` bash
-git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+brew install zsh-autosuggestions
+# in ~/.zshrc
+source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 ```
 
 ### zsh plugin: gradle-completion
@@ -120,7 +122,7 @@ git config --global alias.b branch
 git config --global alias.c checkout
 git config --global alias.pr "push --set-upstream origin HEAD"
 git config --global alias.bb "for-each-ref --sort='-authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads"
-git config --global user.name "William Chen""
+git config --global user.name "William Chen"
 git config --global user.email github@iamchen.com
 ```
 
