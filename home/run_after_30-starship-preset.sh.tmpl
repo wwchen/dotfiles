@@ -4,19 +4,21 @@
 # Runs on every apply but only writes when the file differs from the preset, and never fails
 # the apply (a failure is reported and retried next time).
 set -uo pipefail
-PRESET="nerd-font-symbols"   # its symbols need a Nerd Font in the terminal
+PRESET="nerd-font-symbols"   # its symbols need a Nerd Font (Brewfile.core: font-fira-code-nerd-font)
 TARGET="$HOME/.config/starship.toml"
 
 {{ if eq .chezmoi.os "darwin" -}}
 if [[ -x /opt/homebrew/bin/brew ]]; then eval "$(/opt/homebrew/bin/brew shellenv bash)"; fi
 {{- end }}
 
+# starship itself comes from Brewfile.core, installed by the brew step that runs before this.
 if ! command -v starship >/dev/null; then
   if [[ -n "${DOTFILES_PLAN:-}" ]]; then
-    echo "starship: install it, then write ~/.config/starship.toml from the '$PRESET' preset"
-    exit 0
+    echo "starship: write ~/.config/starship.toml from the '$PRESET' preset (once Brewfile.core installs starship)"
+  else
+    echo "starship: not installed (Brewfile.core), so no preset yet; the next apply writes it"
   fi
-  brew install starship || { echo "starship: install failed; will retry on the next apply" >&2; exit 0; }
+  exit 0
 fi
 
 want="$(starship preset "$PRESET" 2>/dev/null)" || { echo "starship: no preset named '$PRESET'" >&2; exit 0; }

@@ -15,6 +15,15 @@ ZSH_THEME=""            # prompt comes from starship
 plugins=(git)
 [[ -f "$ZSH/oh-my-zsh.sh" ]] && source "$ZSH/oh-my-zsh.sh"
 
+{{ if eq .chezmoi.os "darwin" -}}
+# zsh-autosuggestions: Brewfile.core
+if [[ -f "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]]; then
+  source "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+  ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+  bindkey '^?^I' autosuggest-accept     # <opt-tab>
+fi
+{{- end }}
+
 alias reload='source ~/.zshrc'
 alias zshrc='chezmoi edit --apply ~/.zshrc && reload'
 
@@ -23,11 +32,17 @@ setopt no_nomatch
 setopt no_extended_glob
 setopt no_glob
 
+{{ if get . "dev" -}}
+# --- Brewfile.dev (this Mac said yes to dev tools at `chezmoi init`) ---
+# openjdk@25 is keg-only: Homebrew installs it but leaves it off PATH.
+[[ -d "$HOMEBREW_PREFIX/opt/openjdk@25/bin" ]] && export PATH="$HOMEBREW_PREFIX/opt/openjdk@25/bin:$PATH"
+{{- end }}
+
 {{ if eq .machine "work" -}}
 # --- work machine ---
 {{- end }}
 
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
 
-# starship prompt: installed by the starship step (run_after_30); oh-my-zsh's theme is off above
+# starship prompt: Brewfile.core; oh-my-zsh's theme is off above
 command -v starship >/dev/null && eval "$(starship init zsh)"
