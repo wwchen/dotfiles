@@ -16,7 +16,7 @@
 #
 # Overrides: DOTFILES_DIR  exact clone path (skips the code-root question)
 #            DOTFILES_REF  branch the core Brewfile is read from without a checkout (master)
-#            DOTFILES_REPO what to clone: owner/name or a URL, for gh repo clone (wwchen/dotfiles)
+#            DOTFILES_REPO what to clone: owner/name (over HTTPS) or a URL (wwchen/dotfiles)
 set -euo pipefail
 
 YES=0
@@ -282,17 +282,6 @@ gh auth status -h github.com >/dev/null 2>&1 || die "Setup needs a GitHub login 
 login="$(gh api user --jq .login 2>/dev/null || echo '?')"
 ok "logged in as $login"
 
-pin_github_host_keys() {  # GitHub's published host keys (over HTTPS) in known_hosts, if missing
-  # So a clone over SSH doesn't stop to ask whether to trust whatever answers first.
-  ssh-keygen -F github.com >/dev/null 2>&1 && return 0
-  mkdir -p "$HOME/.ssh"
-  local keys
-  keys="$(gh api meta --jq '.ssh_keys[] | "github.com " + .' 2>/dev/null)" && [[ -n "$keys" ]] \
-    || { warn "couldn't fetch GitHub's SSH host keys"; return 1; }
-  echo "$keys" >> "$HOME/.ssh/known_hosts"
-  ok "added GitHub's SSH host keys to ~/.ssh/known_hosts"
-}
-
 step "dotfiles repo"
 if [[ -n "$ROOT" ]]; then
   ok "using this checkout: $ROOT"
@@ -311,19 +300,11 @@ else
   elif [[ -e "$ROOT" && -n "$(ls -A "$ROOT" 2>/dev/null)" ]]; then
     die "$ROOT exists but isn't this repo; set DOTFILES_DIR to clone somewhere else."
   elif ask "Clone $REPO to $ROOT"; then
-    # gh clones over the protocol you logged in with: HTTPS (a fresh login here), or SSH if
-    # gh was already set up that way. SSH needs your key on GitHub, which bootstrap doesn't
-    # check: if it fails, clone over HTTPS with your gh login instead. (A failed clone leaves
-    # nothing behind, so the second try starts clean.)
+    # Over HTTPS with your gh login, whatever protocol gh is set to.
+    clone_from="$REPO"
+    [[ "$REPO" == *:* ]] || clone_from="https://github.com/$REPO"
     mkdir -p "$(dirname "$ROOT")"
-    if [[ "$(gh config get git_protocol -h github.com 2>/dev/null)" == ssh && "$REPO" != *:* ]]; then
-      if ! { pin_github_host_keys && gh repo clone "$REPO" "$ROOT"; }; then
-        warn "cloning over SSH didn't work; cloning over HTTPS instead"
-        gh repo clone "https://github.com/$REPO" "$ROOT" || die "Couldn't clone $REPO; re-run to retry."
-      fi
-    else
-      gh repo clone "$REPO" "$ROOT" || die "Couldn't clone $REPO; re-run to retry."
-    fi
+    gh repo clone "$clone_from" "$ROOT" || die "Couldn't clone $REPO; re-run to retry."
   fi
   [[ -f "$ROOT/.chezmoiroot" ]] || die "The repo isn't at $ROOT; re-run to clone it."
   mkdir -p "$(dirname "$CHECKOUT_FILE")" && echo "$ROOT" > "$CHECKOUT_FILE"
