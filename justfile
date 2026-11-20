@@ -18,3 +18,8 @@ diff:
 [group('mac')]
 apply:
     chezmoi --source {{ justfile_directory() }} apply -v
+
+# Dry run of apply: list every file and script it would change or run, change nothing
+[group('mac')]
+apply-dry:
+    chezmoi --source {{ justfile_directory() }} apply --dry-run --verbose
