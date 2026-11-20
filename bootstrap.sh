@@ -13,6 +13,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 YES=0
 [[ "${1:-}" == "-y" || "${1:-}" == "--yes" ]] && YES=1
+# Tells chezmoi run scripts (brew bundle) not to prompt either.
+(( YES )) && export BOOTSTRAP_YES=1
 
 bold=$'\e[1m'; yellow=$'\e[33m'; green=$'\e[32m'; red=$'\e[31m'; reset=$'\e[0m'
 step() { echo; echo "${bold}==> $*${reset}"; }
@@ -64,19 +66,26 @@ fi
 
 # 4. Dotfiles (+ Brewfile, oh-my-zsh, iTerm2 via chezmoi run scripts)
 step "Dotfiles, apps and iTerm2 (chezmoi)"
+CZ=(chezmoi --source "$ROOT")   # always this checkout, even if chezmoi was set up from another
 if [[ ! -f "$HOME/.config/chezmoi/chezmoi.toml" ]]; then
   echo "  First run: chezmoi will ask for this machine's type (personal/work) and git email."
   chezmoi init --source "$ROOT"
+elif [[ "$(chezmoi source-path 2>/dev/null)" != "$ROOT/home" ]]; then
+  warn "chezmoi is set up from $(chezmoi source-path 2>/dev/null || echo '?'), not this checkout."
+  if ask "Point chezmoi at $ROOT (keeps your machine type and email)"; then
+    chezmoi init --source "$ROOT"
+  fi
 fi
-if chezmoi diff --exclude scripts --no-pager >/dev/null 2>&1 && [[ -z "$(chezmoi diff --exclude scripts --no-pager)" ]]; then
+changed="$("${CZ[@]}" status --exclude scripts,dirs | cut -c4-)"
+if [[ -z "$changed" ]]; then
   ok "dotfiles already match the repo"
 else
   echo "  These files in your home folder would change:"
-  chezmoi diff --exclude scripts --no-pager | grep -E '^diff --git' | sed -E 's#^diff --git a/([^ ]+).*#    ~/\1#' || true
-  if ask "Show the full diff"; then chezmoi diff --exclude scripts; fi
+  while IFS= read -r f; do echo "    ~/$f"; done <<<"$changed"
+  if ask "Show the full diff"; then "${CZ[@]}" diff --exclude scripts; fi
 fi
 if ask "Apply dotfiles and install Brewfile apps (brew bundle asks again before installing)"; then
-  chezmoi apply
+  "${CZ[@]}" apply
   ok "applied"
 fi
 
@@ -87,9 +96,9 @@ if command -v gh >/dev/null && ! gh auth status >/dev/null 2>&1; then
 else
   ok "GitHub CLI logged in (or not installed yet)"
 fi
-if command -v mas >/dev/null && ! mas account >/dev/null 2>&1; then
-  warn "Sign in to the App Store app, then re-run so 'mas' apps install."
-fi
+# mas can't tell whether you're signed in any more ('mas account' was removed), so just remind.
+echo "  App Store apps in the Brewfile install only when you're signed in to the App Store app."
+echo "  If any were skipped, sign in and run 'just apply' (it retries only what's missing)."
 
 echo
 ok "Done. Day-to-day: 'just' lists the commands."
