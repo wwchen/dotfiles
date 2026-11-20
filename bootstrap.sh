@@ -4,9 +4,7 @@
 #
 #   1. Prerequisites  Xcode Command Line Tools, Homebrew
 #   2. Core apps      brew/Brewfile.core: every entry listed with ✓/+, then one question if any are pending
-#   3. Setup          SSH key and GitHub checks (gh login; key creation and upload are shown
-#                     as commands for you to run) → gh repo clone this repo (SSH once your key
-#                     is on GitHub, HTTPS until then)
+#   3. Setup          GitHub login (gh) → gh repo clone this repo
 #                     → offer `just apply` (it shows its plan and asks before changing anything)
 #
 # Fresh Mac:
@@ -14,7 +12,7 @@
 # From a checkout (uses it; no clone):
 #   ./bootstrap.sh       ask at each step
 #   ./bootstrap.sh -y    don't ask   (piped: ... | bash -s -- -y). Steps that are interactive by
-#                        nature (passphrase, GitHub login) still need a terminal.
+#                        nature (GitHub login) still need a terminal.
 #
 # Overrides: DOTFILES_DIR  exact clone path (skips the code-root question)
 #            DOTFILES_REF  branch the core Brewfile is read from without a checkout (master)
@@ -26,7 +24,6 @@ YES=0
 GH_REPO="wwchen/dotfiles"
 REF="${DOTFILES_REF:-master}"
 REPO="${DOTFILES_REPO:-$GH_REPO}"
-KEY="$HOME/.ssh/id_ed25519"
 # Where the clone went, so re-runs reuse it instead of asking (and cloning) again.
 CHECKOUT_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/checkout"
 
@@ -259,7 +256,7 @@ fi
 
 # ════════════════════════════════════════════════════════════════════════════════════════
 phase "3/3 Setup"
-if ! ask "Continue to setup (SSH key, GitHub, clone this repo)"; then
+if ! ask "Continue to setup (GitHub login, clone this repo)"; then
   echo; ok "Stopped before setup. Re-run any time to continue."
   exit 0
 fi
@@ -274,108 +271,24 @@ elif ask "Install ${want[*]}"; then
 fi
 for t in gh chezmoi just; do command -v "$t" >/dev/null || die "$t is required for setup."; done
 
-# SSH: bootstrap only checks. It never creates a key or adds one to GitHub; it prints the
-# commands to do that (repeated at the end), and you re-run it afterwards.
-TODO=()
-todo() { TODO+=("$1"); echo "    ${bold}$1${reset}"; }  # todo CMD -> show CMD to run, and remember it
-q() {  # q STRING -> STRING quoted for pasting into a shell (only if it needs it)
-  local sq="'"
-  if [[ "$1" =~ ^[A-Za-z0-9_./:@%+=-]+$ ]]; then echo "$1"; else echo "'${1//$sq/$sq\\$sq$sq}'"; fi
-}
-
-step "SSH key"
-# ssh -G shows the effective settings for github.com (Include, Match and aliases resolved).
-ssh_github="$(ssh -G github.com 2>/dev/null || true)"
-# The agent ssh uses for github.com (IdentityAgent, e.g. 1Password's, else SSH_AUTH_SOCK), and
-# the public keys it holds: those count as much as a key file.
-agent="$(sed -n 's/^identityagent //p' <<<"$ssh_github" | head -1)"
-case "$agent" in "" | SSH_AUTH_SOCK) agent="${SSH_AUTH_SOCK:-}" ;; none) agent="" ;; esac
-agent_keys=""
-[[ -n "$agent" ]] && agent_keys="$(SSH_AUTH_SOCK="$agent" ssh-add -L 2>/dev/null | grep '^ssh-' || true)"
-key_cmd="ssh-keygen -t ed25519 -C $(q "$(whoami)@$(scutil --get LocalHostName 2>/dev/null || hostname -s)") -f $(q "$KEY")"
-if [[ -f "$KEY" && -f "$KEY.pub" ]]; then
-  ok "$KEY"
-elif [[ -f "$KEY" ]]; then
-  warn "$KEY has no .pub next to it. To rebuild it from the private key:"
-  todo "ssh-keygen -y -f $(q "$KEY") > $(q "$KEY.pub")"
-elif [[ -n "$agent_keys" ]]; then
-  ok "no $KEY; the SSH agent has $(grep -c . <<<"$agent_keys") key(s)"
-else
-  warn "no SSH key. To create one (it asks for a passphrase):"
-  todo "$key_cmd"
-fi
-# Keep a key file's passphrase in the macOS keychain. Leave ~/.ssh/config alone if it already
-# handles github.com: keys loaded into the agent, another agent serving the keys
-# (IdentityAgent), or a Host entry for it. The last check also keeps re-runs from appending
-# again when an earlier block (Host *) overrides AddKeysToAgent: ssh uses the first value.
-if [[ -f "$KEY" ]]; then
-  if grep -qx 'addkeystoagent true' <<<"$ssh_github"; then
-    ok "github.com is set up in ~/.ssh/config"
-  elif [[ -n "$agent" && "$agent" != "${SSH_AUTH_SOCK:-}" ]]; then
-    ok "github.com keys come from an SSH agent ($agent); ~/.ssh/config left as is"
-  elif grep -qiE '^[[:space:]]*Host[[:space:]]+(.*[[:space:]])?github\.com([[:space:]]|$)' "$HOME/.ssh/config" 2>/dev/null; then
-    ok "github.com already has an entry in ~/.ssh/config"
-  else
-    printf '\nHost github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile %s\n' "$KEY" >> "$HOME/.ssh/config"
-    chmod 600 "$HOME/.ssh/config"
-    ok "added a github.com entry to ~/.ssh/config"
-  fi
-fi
-
 step "GitHub login"
 if gh auth status -h github.com >/dev/null 2>&1; then
   :
 elif ask "Log in to GitHub with gh (opens a browser)"; then
   need_tty "Logging in to GitHub"
-  gh auth login -h github.com -p ssh -w --skip-ssh-key -s admin:public_key </dev/tty
+  gh auth login -h github.com -p https -w </dev/tty
 fi
-gh auth status -h github.com >/dev/null 2>&1 || die "Setup needs a GitHub login to add the SSH key."
+gh auth status -h github.com >/dev/null 2>&1 || die "Setup needs a GitHub login to clone this repo."
 login="$(gh api user --jq .login 2>/dev/null || echo '?')"
 ok "logged in as $login"
 
-step "SSH key on GitHub"
-# users/LOGIN/keys is public: user/keys would need a token scope (read:public_key) that a
-# plain `gh auth login` doesn't grant, and a failed read looks like "not added".
-ssh_ok=0
-mine="$( { [[ -f "$KEY" && -f "$KEY.pub" ]] && cat "$KEY.pub"; printf '%s\n' "$agent_keys"; } | cut -d' ' -f1,2 | grep '^ssh-' || true)"
-if ! gh_keys="$(gh api "users/$login/keys" --jq '.[].key' 2>/dev/null)"; then
-  warn "couldn't read $login's SSH keys from GitHub; check https://github.com/settings/keys"
-elif [[ -n "$mine" && -n "$gh_keys" ]] && match="$(grep -xFf <(printf '%s\n' "$gh_keys") <<<"$mine" | head -1)"; then
-  ssh_ok=1
-  if [[ -f "$KEY.pub" && "$(cut -d' ' -f1,2 "$KEY.pub")" == "$match" ]]; then
-    ok "$KEY.pub is on $login's account"
-  else
-    ok "a key from the SSH agent is on $login's account"
-  fi
-else
-  if [[ -f "$KEY.pub" ]]; then
-    warn "$KEY.pub isn't on $login's GitHub account. To add it:"
-  else
-    warn "no SSH key of yours is on $login's GitHub account. Once $KEY.pub exists, to add it:"
-    # The agent's keys aren't on GitHub either: a key file is the way forward.
-    if [[ -n "$agent_keys" && ! -f "$KEY" ]]; then todo "$key_cmd"; fi
-  fi
-  # gh needs the admin:public_key scope to add keys; a token without it gets it here.
-  if ! gh auth status -h github.com 2>&1 | grep -qE "Token scopes:.*'(admin|write):public_key'"; then
-    todo "gh auth refresh -h github.com -s admin:public_key"
-  fi
-  todo "gh ssh-key add $(q "$KEY.pub") --title $(q "$(scutil --get ComputerName 2>/dev/null || hostname -s)")"
-fi
-
 pin_github_host_keys() {  # GitHub's published host keys (over HTTPS) in known_hosts, if missing
-  # Instead of trusting whatever answers the first SSH connection.
+  # So a clone over SSH doesn't stop to ask whether to trust whatever answers first.
   ssh-keygen -F github.com >/dev/null 2>&1 && return 0
   mkdir -p "$HOME/.ssh"
   gh api meta --jq '.ssh_keys[] | "github.com " + .' >> "$HOME/.ssh/known_hosts" \
     || die "Couldn't fetch GitHub's SSH host keys."
   ok "added GitHub's SSH host keys to ~/.ssh/known_hosts"
-}
-
-show_todo() {  # what's left for you to run, then re-run bootstrap
-  (( ${#TODO[@]} )) || return 0
-  echo
-  echo "${yellow}To finish, run these, then re-run bootstrap:${reset}"
-  printf '    %s\n' "${TODO[@]}"
 }
 
 step "dotfiles repo"
@@ -396,27 +309,15 @@ else
   elif [[ -e "$ROOT" && -n "$(ls -A "$ROOT" 2>/dev/null)" ]]; then
     die "$ROOT exists but isn't this repo; set DOTFILES_DIR to clone somewhere else."
   elif ask "Clone $REPO to $ROOT"; then
-    # gh clones over its git_protocol (ssh after `gh auth login -p ssh`). Until a key of yours
-    # is on GitHub, an https URL makes it clone over HTTPS with your gh login instead.
-    clone_from="$REPO"
-    if (( ssh_ok )); then
+    # gh clones over the protocol you logged in with: HTTPS (a fresh login here), or SSH if
+    # gh was already set up that way, in which case your key needs to be on GitHub.
+    if [[ "$(gh config get git_protocol -h github.com 2>/dev/null)" == ssh ]]; then
       pin_github_host_keys
-    elif [[ "$REPO" != *:* ]]; then
-      clone_from="https://github.com/$REPO"
     fi
     mkdir -p "$(dirname "$ROOT")"
-    gh repo clone "$clone_from" "$ROOT"
+    gh repo clone "$REPO" "$ROOT"
   fi
   [[ -f "$ROOT/.chezmoiroot" ]] || die "The repo isn't at $ROOT; re-run to clone it."
-  # Cloned over HTTPS before your key was on GitHub? Once it is, and gh prefers SSH, switch.
-  origin="$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)"
-  if (( ssh_ok )) && [[ "$origin" == https://github.com/* ]] \
-    && [[ "$(gh config get git_protocol -h github.com 2>/dev/null)" == ssh ]]; then
-    pin_github_host_keys
-    ssh_origin="git@github.com:${origin#https://github.com/}"
-    warn "$ROOT uses HTTPS; your SSH key is on GitHub now. To switch it to SSH:"
-    todo "git -C $(q "$ROOT") remote set-url origin $(q "${ssh_origin%.git}.git")"
-  fi
   mkdir -p "$(dirname "$CHECKOUT_FILE")" && echo "$ROOT" > "$CHECKOUT_FILE"
 fi
 
@@ -430,4 +331,3 @@ fi
 
 echo
 ok "Bootstrap done. Re-run any time; it only does what's missing."
-show_todo
