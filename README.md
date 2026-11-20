@@ -7,6 +7,7 @@ My Macs and remote boxes.
 | Mac apps | [Homebrew Bundle](https://docs.brew.sh/Brew-Bundle-and-Brewfile) | `brew/Brewfile.<group>` |
 | Dotfiles (zsh, git, vim, ssh, iTerm2) | [chezmoi](https://chezmoi.io) | `home/` |
 | Raspberry Pis | Ansible | `infra/ansible/` |
+| Cloudflare tunnel, DNS, Access | OpenTofu | `infra/cloudflare/` |
 | Secrets | sops + age | `secrets/` |
 | Old configs | — | `archive/` (not deployed) |
 
@@ -51,11 +52,18 @@ Needs `./brew-install.sh infra` and the age key from your password manager:
 ```bash
 just secrets-init      # once
 just secrets-edit
+just cf-import         # once: adopt existing Cloudflare resources
+just cf-plan
+just cf-apply
 just pi-check pi-tx    # dry run
 just pi-apply pi-tx
 ```
 
 Reflashed Pi (Raspberry Pi OS Lite, user `admin`, your SSH key): remove the old pi-tx from
 Tailscale, then `just pi-apply pi-tx -e ansible_host=<LAN IP>`. Give `admin` an `accept` SSH rule
-in the tailnet policy, or every run waits for a browser re-auth. TeslaMate's UIs listen on
-127.0.0.1 (use `ssh -L`).
+in the tailnet policy, or every run waits for a browser re-auth.
+
+cloudflared runs on the Pi with its token from OpenTofu (state committed, encrypted). Before the
+first `pi-apply` with it, stop any cloudflared started by hand
+(`docker ps --format '{{.Names}} {{.Image}}' | grep cloudflared`).
+`SKIP_TUNNEL_TOKENS=1 just pi-apply pi-tx --tags base,tailscale,docker` runs without the token.

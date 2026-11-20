@@ -3,4 +3,6 @@
 brew "age"
 brew "ansible"
 brew "ansible-lint"
+brew "cf-terraforming"
+brew "opentofu"
 brew "sops"

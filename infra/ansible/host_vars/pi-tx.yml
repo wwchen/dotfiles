@@ -7,5 +7,7 @@ teslamate_backup_mount: /mnt/usb1
 teslamate_backup_dir: /mnt/usb1/rpi-backup/teslamate
 # Was running in the old compose file.
 teslamate_api_enabled: true
-# UIs listen here (reach via `ssh -L`). Not 0.0.0.0: Docker ports bypass ufw.
+# Run cloudflared; its token comes from infra/cloudflare.
+teslamate_cloudflared_enabled: true
+# UIs listen here (reach via the tunnel or `ssh -L`). Not 0.0.0.0: Docker ports bypass ufw.
 teslamate_bind_address: 127.0.0.1
