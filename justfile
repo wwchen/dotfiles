@@ -9,10 +9,10 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 default:
     @if command -v fzf >/dev/null && [ -t 0 ]; then just --choose; else just --list --unsorted; fi
 
-# Bootstrap: prerequisites → core apps, then prints the commands to finish setup
+# Bootstrap: Homebrew, then chezmoi, just and gh; prints the commands to finish setup
 [group('mac')]
-bootstrap *args:
-    ./bootstrap.sh {{ args }}
+bootstrap:
+    ./bootstrap.sh
 
 # Show what `apply` would change in your home folder (uses this checkout)
 [group('mac')]

@@ -12,17 +12,16 @@ One repo for setting up my Macs and managing my remote boxes.
 curl -fsSL https://raw.githubusercontent.com/wwchen/dotfiles/master/bootstrap.sh | bash
 ```
 
-`bootstrap.sh` only does what's missing, so it's safe to re-run:
+`bootstrap.sh` installs only what the rest of setup needs, and is safe to re-run:
 
-1. **Prerequisites:** Command Line Tools, Homebrew.
-2. **Core apps:** `brew/Brewfile.core` (CLI basics, 1Password, iTerm2), read from GitHub (no clone yet),
-   listed first. The other groups install on `just apply`.
+1. **Homebrew**, whose installer also installs the Command Line Tools if they're missing.
+2. **chezmoi, just, gh.**
 3. **Next steps:** prints the commands to finish, leaving out what's already done. It runs
    none of them:
 
    ```bash
    gh auth login -h github.com -p ssh -w   # offers to make and add an SSH key to GitHub
-   gh repo clone wwchen/dotfiles ~/code/wwchen/dotfiles   # over SSH; or clone anywhere
+   gh repo clone wwchen/dotfiles ~/code/wwchen/dotfiles
    cd ~/code/wwchen/dotfiles && just apply
    ```
 
