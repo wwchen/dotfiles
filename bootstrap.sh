@@ -82,8 +82,8 @@ abspath() {  # ~ and ~/x expand to the home folder; other relative paths are und
   echo "$p"
 }
 
-# Brewfile helpers (the repo's scripts/brewfile.sh has the same ones; this script can't source
-# it because it runs before the repo is cloned).
+# Brewfile helpers. Kept in this file on purpose: bootstrap runs before the repo is cloned, so
+# it can't load anything from it.
 brewfile_entries() {  # brewfile_entries FILE -> each entry's name, one per line
   sed -nE 's/^[[:space:]]*(brew|cask|mas|tap|npm) "([^"]+)".*/\2/p' "$1"
 }
