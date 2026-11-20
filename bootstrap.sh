@@ -4,7 +4,8 @@
 #
 #   1. Prerequisites  Xcode Command Line Tools, Homebrew
 #   2. Core apps      brew/Brewfile.core: every entry listed with ✓/+, then one question if any are pending
-#   3. Setup          SSH key → GitHub (gh login, key added) → clone this repo over SSH
+#   3. Setup          SSH key and GitHub checks (gh login; key creation and upload are shown
+#                     as commands for you to run) → clone this repo over SSH
 #                     → offer `just apply` (it shows its plan and asks before changing anything)
 #
 # Fresh Mac:
@@ -272,43 +273,52 @@ elif ask "Install ${want[*]}"; then
 fi
 for t in gh chezmoi just; do command -v "$t" >/dev/null || die "$t is required for setup."; done
 
+# SSH: bootstrap only checks. It never creates a key or adds one to GitHub; it prints the
+# commands to do that (repeated at the end), and you re-run it afterwards.
+TODO=()
+todo() { TODO+=("$1"); echo "    ${bold}$1${reset}"; }  # todo CMD -> show CMD to run, and remember it
+q() {  # q STRING -> STRING quoted for pasting into a shell (only if it needs it)
+  local sq="'"
+  if [[ "$1" =~ ^[A-Za-z0-9_./:@%+=-]+$ ]]; then echo "$1"; else echo "'${1//$sq/$sq\\$sq$sq}'"; fi
+}
+
 step "SSH key"
+# ssh -G shows the effective settings for github.com (Include, Match and aliases resolved).
+ssh_github="$(ssh -G github.com 2>/dev/null || true)"
+# The agent ssh uses for github.com (IdentityAgent, e.g. 1Password's, else SSH_AUTH_SOCK), and
+# the public keys it holds: those count as much as a key file.
+agent="$(sed -n 's/^identityagent //p' <<<"$ssh_github" | head -1)"
+case "$agent" in "" | SSH_AUTH_SOCK) agent="${SSH_AUTH_SOCK:-}" ;; none) agent="" ;; esac
+agent_keys=""
+[[ -n "$agent" ]] && agent_keys="$(SSH_AUTH_SOCK="$agent" ssh-add -L 2>/dev/null | grep '^ssh-' || true)"
+key_cmd="ssh-keygen -t ed25519 -C $(q "$(whoami)@$(scutil --get LocalHostName 2>/dev/null || hostname -s)") -f $(q "$KEY")"
 if [[ -f "$KEY" && -f "$KEY.pub" ]]; then
   ok "$KEY"
 elif [[ -f "$KEY" ]]; then
-  # Private key without its .pub (e.g. restored from a backup): rebuild the public half.
-  need_tty "Reading the key's passphrase"
-  ssh-keygen -y -f "$KEY" </dev/tty > "$KEY.pub.tmp" && mv "$KEY.pub.tmp" "$KEY.pub"
-  ok "rebuilt $KEY.pub from the private key"
-elif ask "Create an SSH key at $KEY (you'll pick a passphrase)"; then
-  need_tty "Creating an SSH key (passphrase)"
-  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
-  if [[ -f "$KEY.pub" ]]; then
-    # A .pub without its private key is useless (and must not be uploaded): set it aside.
-    mv "$KEY.pub" "$KEY.pub.orphaned-$(date +%Y%m%d%H%M%S)"
-    warn "moved an orphaned $KEY.pub aside"
-  fi
-  ssh-keygen -t ed25519 -C "$(whoami)@$(scutil --get LocalHostName 2>/dev/null || hostname -s)" -f "$KEY" </dev/tty
-fi
-[[ -f "$KEY" && -f "$KEY.pub" ]] || die "No SSH key; setup needs one to clone over SSH."
-# ssh -G shows the effective settings for github.com (Include, Match and aliases resolved).
-# Leave ~/.ssh/config alone if it already handles github.com: keys loaded into the agent,
-# another agent serving the keys (IdentityAgent, e.g. 1Password's), or a Host entry for it.
-# The last check also keeps re-runs from appending again when an earlier block (Host *)
-# overrides AddKeysToAgent, since ssh uses the first value it finds.
-ssh_github="$(ssh -G github.com 2>/dev/null || true)"
-if grep -qx 'addkeystoagent true' <<<"$ssh_github"; then
-  ok "github.com is set up in ~/.ssh/config"
-elif agent="$(sed -n 's/^identityagent //p' <<<"$ssh_github" | grep -vxE 'none|SSH_AUTH_SOCK' | head -1)" \
-  && [[ -n "$agent" ]]; then
-  ok "github.com keys come from an SSH agent ($agent); ~/.ssh/config left as is"
-elif grep -qiE '^[[:space:]]*Host[[:space:]]+(.*[[:space:]])?github\.com([[:space:]]|$)' "$HOME/.ssh/config" 2>/dev/null; then
-  ok "github.com already has an entry in ~/.ssh/config"
+  warn "$KEY has no .pub next to it. To rebuild it from the private key:"
+  todo "ssh-keygen -y -f $(q "$KEY") > $(q "$KEY.pub")"
+elif [[ -n "$agent_keys" ]]; then
+  ok "no $KEY; the SSH agent has $(grep -c . <<<"$agent_keys") key(s)"
 else
-  # Keep the passphrase in the macOS keychain and load the key on first use.
-  printf '\nHost github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile %s\n' "$KEY" >> "$HOME/.ssh/config"
-  chmod 600 "$HOME/.ssh/config"
-  ok "added a github.com entry to ~/.ssh/config"
+  warn "no SSH key. To create one (it asks for a passphrase):"
+  todo "$key_cmd"
+fi
+# Keep a key file's passphrase in the macOS keychain. Leave ~/.ssh/config alone if it already
+# handles github.com: keys loaded into the agent, another agent serving the keys
+# (IdentityAgent), or a Host entry for it. The last check also keeps re-runs from appending
+# again when an earlier block (Host *) overrides AddKeysToAgent: ssh uses the first value.
+if [[ -f "$KEY" ]]; then
+  if grep -qx 'addkeystoagent true' <<<"$ssh_github"; then
+    ok "github.com is set up in ~/.ssh/config"
+  elif [[ -n "$agent" && "$agent" != "${SSH_AUTH_SOCK:-}" ]]; then
+    ok "github.com keys come from an SSH agent ($agent); ~/.ssh/config left as is"
+  elif grep -qiE '^[[:space:]]*Host[[:space:]]+(.*[[:space:]])?github\.com([[:space:]]|$)' "$HOME/.ssh/config" 2>/dev/null; then
+    ok "github.com already has an entry in ~/.ssh/config"
+  else
+    printf '\nHost github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile %s\n' "$KEY" >> "$HOME/.ssh/config"
+    chmod 600 "$HOME/.ssh/config"
+    ok "added a github.com entry to ~/.ssh/config"
+  fi
 fi
 
 step "GitHub login"
@@ -323,30 +333,40 @@ login="$(gh api user --jq .login 2>/dev/null || echo '?')"
 ok "logged in as $login"
 
 step "SSH key on GitHub"
-pub="$(cut -d' ' -f1,2 "$KEY.pub")"
-# users/LOGIN/keys is public: reading user/keys would need a token scope (read:public_key)
-# that a plain `gh auth login` doesn't grant, and a failed read looked like "not added".
-if gh api "users/$login/keys" --jq '.[].key' 2>/dev/null | grep -qxF "$pub"; then
-  ok "already on $login's account"
-elif ask "Add $KEY.pub to GitHub account $login"; then
-  title="$(scutil --get ComputerName 2>/dev/null || hostname -s) ($(date +%F))"
-  if ! err="$(gh ssh-key add "$KEY.pub" --title "$title" 2>&1)"; then
-    if grep -qi 'already in use' <<<"$err"; then
-      die "$KEY.pub is already on another GitHub account (or is a repo's deploy key), and a key can only be on one. Remove it there, or move $KEY aside and re-run to make a new one."
-    fi
-    if ! grep -qiE 'admin:public_key|scope|HTTP 404' <<<"$err"; then
-      die "Couldn't add the key: $err"
-    fi
-    # Logged in without the scope to manage keys: ask for it, then retry once.
-    if [[ -n "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]]; then
-      die "The token in GH_TOKEN/GITHUB_TOKEN can't manage SSH keys (needs admin:public_key). Unset it, or add $KEY.pub on github.com yourself."
-    fi
-    need_tty "Granting gh the admin:public_key scope"
-    gh auth refresh -h github.com -s admin:public_key </dev/tty
-    gh ssh-key add "$KEY.pub" --title "$title"
+# users/LOGIN/keys is public: user/keys would need a token scope (read:public_key) that a
+# plain `gh auth login` doesn't grant, and a failed read looks like "not added".
+ssh_ok=0
+mine="$( { [[ -f "$KEY" && -f "$KEY.pub" ]] && cat "$KEY.pub"; printf '%s\n' "$agent_keys"; } | cut -d' ' -f1,2 | grep '^ssh-' || true)"
+if ! gh_keys="$(gh api "users/$login/keys" --jq '.[].key' 2>/dev/null)"; then
+  warn "couldn't read $login's SSH keys from GitHub; check https://github.com/settings/keys"
+elif [[ -n "$mine" && -n "$gh_keys" ]] && match="$(grep -xFf <(printf '%s\n' "$gh_keys") <<<"$mine" | head -1)"; then
+  ssh_ok=1
+  if [[ -f "$KEY.pub" && "$(cut -d' ' -f1,2 "$KEY.pub")" == "$match" ]]; then
+    ok "$KEY.pub is on $login's account"
+  else
+    ok "a key from the SSH agent is on $login's account"
   fi
-  ok "added to $login as \"$title\""
+else
+  if [[ -f "$KEY.pub" ]]; then
+    warn "$KEY.pub isn't on $login's GitHub account. To add it:"
+  else
+    warn "no SSH key of yours is on $login's GitHub account. Once $KEY.pub exists, to add it:"
+    # The agent's keys aren't on GitHub either: a key file is the way forward.
+    if [[ -n "$agent_keys" && ! -f "$KEY" ]]; then todo "$key_cmd"; fi
+  fi
+  # gh needs the admin:public_key scope to add keys; a token without it gets it here.
+  if ! gh auth status -h github.com 2>&1 | grep -qE "Token scopes:.*'(admin|write):public_key'"; then
+    todo "gh auth refresh -h github.com -s admin:public_key"
+  fi
+  todo "gh ssh-key add $(q "$KEY.pub") --title $(q "$(scutil --get ComputerName 2>/dev/null || hostname -s)")"
 fi
+
+show_todo() {  # what's left for you to run, then re-run bootstrap
+  (( ${#TODO[@]} )) || return 0
+  echo
+  echo "${yellow}To finish, run these, then re-run bootstrap:${reset}"
+  printf '    %s\n' "${TODO[@]}"
+}
 
 step "dotfiles repo"
 if [[ -n "$ROOT" ]]; then
@@ -365,6 +385,10 @@ else
     ok "at $ROOT"
   elif [[ -e "$ROOT" && -n "$(ls -A "$ROOT" 2>/dev/null)" ]]; then
     die "$ROOT exists but isn't this repo; set DOTFILES_DIR to clone somewhere else."
+  elif (( ! ssh_ok )); then
+    warn "cloning $REPO_URL needs your SSH key on GitHub; stopping here"
+    show_todo
+    exit 0
   elif ask "Clone $REPO_URL to $ROOT"; then
     if ! ssh-keygen -F github.com >/dev/null 2>&1; then
       # Pin GitHub's published host keys (fetched over HTTPS) instead of trusting whatever
@@ -391,3 +415,4 @@ fi
 
 echo
 ok "Bootstrap done. Re-run any time; it only does what's missing."
+show_todo
