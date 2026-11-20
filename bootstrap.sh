@@ -88,20 +88,82 @@ brewfile_entries() {  # brewfile_entries FILE -> each entry's name, one per line
   sed -nE 's/^[[:space:]]*(tap|brew|cask|mas|npm) "([^"]+)".*/\2/p' "$1"
 }
 
-brewfile_pending() {  # brewfile_pending FILE -> names of entries brew says need something
+brewfile_pending() {  # brewfile_pending FILE -> names of entries that need something
   # brew bundle check lists them on stderr, worded per kind: "→ Formula jq needs to be
   # installed.", "→ Tap x needs to be tapped.", "→ Formula libpq needs to be linked.",
   # "→ npm Package y needs to be installed.", ... Matching each entry's own name copes with all
-  # of those. Returns 2 (with brew's output on stderr) if the check failed but named none of
-  # the entries, e.g. a broken Brewfile.
-  local out name found=0
+  # of those. Entries already on this Mac outside Homebrew (brewfile_present) aren't pending.
+  # Returns 2 (with brew's output on stderr) if the check failed but named none of the
+  # entries, e.g. a broken Brewfile.
+  local out type name found=0
   out="$(brew bundle check --no-upgrade --verbose --file="$1" 2>&1)" && return 0
-  while IFS= read -r name; do
-    if grep -qF " $name needs to be " <<<"$out"; then echo "$name"; found=1; fi
-  done < <(brewfile_entries "$1")
+  while read -r type name; do
+    grep -qF " $name needs to be " <<<"$out" || continue
+    found=1
+    brewfile_present "$type" "$name" || echo "$name"
+  done < <(sed -nE 's/^[[:space:]]*(tap|brew|cask|mas|npm) "([^"]+)".*/\1 \2/p' "$1" | awk '!seen[$0]++')
   (( found )) && return 0
   echo "$out" >&2
   return 2
+}
+
+brewfile_present() {  # brewfile_present TYPE NAME -> 0 if the entry is on this Mac without Homebrew
+  # e.g. macOS's own /usr/bin/jq, or 1Password installed from its website. Formulae: a command
+  # of that name on PATH. Casks: what the cask would install (brewfile_cask_files) is all there.
+  # App Store apps: /Applications/NAME.app. Taps and npm packages: never.
+  local kind file found=0
+  case "$1" in
+    brew) type -P "${2##*/}" >/dev/null ;;
+    mas) [[ -d "/Applications/$2.app" ]] ;;
+    cask)
+      while read -r kind file; do
+        [[ -n "$kind" ]] || continue
+        found=1
+        case "$kind" in
+          app) [[ -d "/Applications/$file" || -d "$HOME/Applications/$file" ]] || return 1 ;;
+          binary) type -P "$file" >/dev/null || return 1 ;;
+          font) [[ -f "$HOME/Library/Fonts/$file" || -f "/Library/Fonts/$file" ]] || return 1 ;;
+        esac
+      done < <(brewfile_cask_files "$2")
+      (( found )) ;;
+    *) return 1 ;;
+  esac
+}
+
+brewfile_cask_files() {  # brewfile_cask_files CASK -> "<app|binary|font> <file name>" per file it installs
+  # Only its main kind: its apps if it has any, else its commands, else its fonts (so a missing
+  # `code` command doesn't make a hand-installed VS Code pending). Nothing if brew doesn't know
+  # the cask. Parsed with JavaScript for Automation: every Mac has it; jq may not be there yet.
+  local json
+  json="$(brew info --cask --json=v2 "$1" 2>/dev/null)" || return 0
+  osascript -l JavaScript -e '
+    function run(argv) {
+      var found = { app: [], binary: [], font: [] };
+      (JSON.parse(argv[0]).casks || []).forEach(function (c) {
+        (c.artifacts || []).forEach(function (a) {
+          Object.keys(found).forEach(function (k) {
+            if (!Array.isArray(a[k])) return;
+            var opts = a[k].filter(function (x) { return x && typeof x === "object"; })[0] || {};
+            var path = a.target || opts.target || a[k].filter(function (x) { return typeof x === "string"; })[0];
+            if (!path) return;
+            // Apps keep their folder under /Applications (e.g. "Adobe X/X.app"); others by name.
+            var name = k === "app" && path.indexOf("/Applications/") === 0
+              ? path.slice("/Applications/".length) : path.split("/").pop();
+            found[k].push(k + " " + name);
+          });
+        });
+      });
+      return (found.app.length ? found.app : found.binary.length ? found.binary : found.font).join("\n");
+    }' "$json" 2>/dev/null
+}
+
+brewfile_select() {  # brewfile_select FILE NAMES_FILE -> FILE's entry lines (options kept) for those names
+  # The Brewfile to install from when only some entries are pending.
+  awk 'FILENAME == ARGV[1] { want[$0] = 1; next }
+       match($0, /^[[:space:]]*(tap|brew|cask|mas|npm) "[^"]+"/) {
+         name = substr($0, RSTART, RLENGTH); sub(/^[^"]*"/, "", name); sub(/"$/, "", name)
+         if ((name in want) && !seen[$0]++) print
+       }' "$2" "$1"
 }
 
 brewfile_show() {  # brewfile_show FILE PENDING_LIST -> every entry in 3 columns, ✓ done / + pending
@@ -178,9 +240,13 @@ else
   fi
   if (( status != 0 || n_pending > 0 )); then
     what="the $n_pending pending ($(paste -sd ',' "$tmp/pending" | sed 's/,/, /g'))"
-    (( status != 0 )) && what="brew bundle anyway"
+    # Only the pending entries: the rest are installed, some of them without Homebrew, and
+    # brew would install those again (or fail to --adopt an app that isn't the same version).
+    brewfile_select "$brewfile" "$tmp/pending" > "$tmp/Brewfile.pending"
+    install_from="$tmp/Brewfile.pending"
+    if (( status != 0 )); then what="brew bundle anyway"; install_from="$brewfile"; fi
     if ask "Install $what"; then
-      if HOMEBREW_CASK_OPTS="--adopt" from_tty brew bundle install --no-upgrade --file="$brewfile"; then
+      if HOMEBREW_CASK_OPTS="--adopt" from_tty brew bundle install --no-upgrade --file="$install_from"; then
         ok "core apps installed"
       else
         warn "some failed; re-run to retry just those"
@@ -226,8 +292,18 @@ elif ask "Create an SSH key at $KEY (you'll pick a passphrase)"; then
 fi
 [[ -f "$KEY" && -f "$KEY.pub" ]] || die "No SSH key; setup needs one to clone over SSH."
 # ssh -G shows the effective settings for github.com (Include, Match and aliases resolved).
-if ssh -G github.com 2>/dev/null | grep -qx 'addkeystoagent true'; then
+# Leave ~/.ssh/config alone if it already handles github.com: keys loaded into the agent,
+# another agent serving the keys (IdentityAgent, e.g. 1Password's), or a Host entry for it.
+# The last check also keeps re-runs from appending again when an earlier block (Host *)
+# overrides AddKeysToAgent, since ssh uses the first value it finds.
+ssh_github="$(ssh -G github.com 2>/dev/null || true)"
+if grep -qx 'addkeystoagent true' <<<"$ssh_github"; then
   ok "github.com is set up in ~/.ssh/config"
+elif agent="$(sed -n 's/^identityagent //p' <<<"$ssh_github" | grep -vxE 'none|SSH_AUTH_SOCK' | head -1)" \
+  && [[ -n "$agent" ]]; then
+  ok "github.com keys come from an SSH agent ($agent); ~/.ssh/config left as is"
+elif grep -qiE '^[[:space:]]*Host[[:space:]]+(.*[[:space:]])?github\.com([[:space:]]|$)' "$HOME/.ssh/config" 2>/dev/null; then
+  ok "github.com already has an entry in ~/.ssh/config"
 else
   # Keep the passphrase in the macOS keychain and load the key on first use.
   printf '\nHost github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile %s\n' "$KEY" >> "$HOME/.ssh/config"
@@ -248,11 +324,16 @@ ok "logged in as $login"
 
 step "SSH key on GitHub"
 pub="$(cut -d' ' -f1,2 "$KEY.pub")"
-if gh api user/keys --jq '.[].key' 2>/dev/null | grep -qxF "$pub"; then
+# users/LOGIN/keys is public: reading user/keys would need a token scope (read:public_key)
+# that a plain `gh auth login` doesn't grant, and a failed read looked like "not added".
+if gh api "users/$login/keys" --jq '.[].key' 2>/dev/null | grep -qxF "$pub"; then
   ok "already on $login's account"
 elif ask "Add $KEY.pub to GitHub account $login"; then
   title="$(scutil --get ComputerName 2>/dev/null || hostname -s) ($(date +%F))"
   if ! err="$(gh ssh-key add "$KEY.pub" --title "$title" 2>&1)"; then
+    if grep -qi 'already in use' <<<"$err"; then
+      die "$KEY.pub is already on another GitHub account (or is a repo's deploy key), and a key can only be on one. Remove it there, or move $KEY aside and re-run to make a new one."
+    fi
     if ! grep -qiE 'admin:public_key|scope|HTTP 404' <<<"$err"; then
       die "Couldn't add the key: $err"
     fi
