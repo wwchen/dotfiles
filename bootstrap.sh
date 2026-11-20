@@ -84,15 +84,16 @@ abspath() {  # ~ and ~/x expand to the home folder; other relative paths are und
 
 # Brewfile helpers. Kept in this file on purpose: bootstrap runs before the repo is cloned, so
 # it can't load anything from it.
-brewfile_entries() {  # brewfile_entries FILE -> each entry's name, one per line
-  sed -nE 's/^[[:space:]]*(brew|cask|mas|tap|npm) "([^"]+)".*/\2/p' "$1"
+brewfile_entries() {  # brewfile_entries FILE -> each entry's name, one per line, in file order
+  sed -nE 's/^[[:space:]]*(tap|brew|cask|mas|npm) "([^"]+)".*/\2/p' "$1"
 }
 
 brewfile_pending() {  # brewfile_pending FILE -> names of entries brew says need something
   # brew bundle check lists them on stderr, worded per kind: "→ Formula jq needs to be
-  # installed.", "→ Tap x needs to be tapped.", "→ npm Package y needs to be installed.", ...
-  # Matching each entry's own name copes with all of those. Returns 2 (with brew's output on
-  # stderr) if the check failed but named none of the entries, e.g. a broken Brewfile.
+  # installed.", "→ Tap x needs to be tapped.", "→ Formula libpq needs to be linked.",
+  # "→ npm Package y needs to be installed.", ... Matching each entry's own name copes with all
+  # of those. Returns 2 (with brew's output on stderr) if the check failed but named none of
+  # the entries, e.g. a broken Brewfile.
   local out name found=0
   out="$(brew bundle check --no-upgrade --verbose --file="$1" 2>&1)" && return 0
   while IFS= read -r name; do
