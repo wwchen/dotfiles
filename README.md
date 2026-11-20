@@ -51,9 +51,15 @@ just brew-sync    # installed something by hand? add it to a Brewfile (or ignore
 just iterm-export # tweaked iTerm2's "Default" profile in Settings? save it to the repo
 ```
 
-**Changing the iTerm2 look:** edit the **Default** profile in iTerm2 Settings (not "wc" —
-iTerm2 doesn't save Settings edits to dynamic profiles), then `just iterm-export`,
-`git diff`, `just apply`, commit.
+**Changing the iTerm2 colors:** `just iterm-theme` opens a browser of the ~1000 schemes in
+[iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes), with a live swatch
+preview that flags low-contrast colors. Pick one, choose light/dark/both mode, keep or revert,
+then commit. Or by name: `just iterm-theme "Catppuccin Mocha"`, `just iterm-theme --mode light "Catppuccin Latte"`.
+
+**Other iTerm2 settings (font, keys, …):** edit the **Default** profile in iTerm2 Settings
+(not "wc" — iTerm2 doesn't save Settings edits to dynamic profiles), then `just iterm-export`,
+`git diff`, `just apply`, commit. Note this copies Default's colors too, overwriting a theme
+set with `iterm-theme`; re-run `iterm-theme` afterwards if needed.
 The export keeps only the settings that differ from iTerm2's factory defaults, so the
 diff shows what you actually changed.
 

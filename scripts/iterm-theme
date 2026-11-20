@@ -1,0 +1,146 @@
+#!/bin/bash
+# Apply a scheme from github.com/mbadolato/iTerm2-Color-Schemes to the "wc" profile (colors only).
+#   scripts/iterm-theme                     pick one with fzf (live preview)
+#   scripts/iterm-theme "Catppuccin Mocha"  apply by name
+#   scripts/iterm-theme --mode dark NAME    only dark-mode colors (also: light, both)
+#   scripts/iterm-theme --preview NAME      swatches + contrast check
+#   scripts/iterm-theme --list              scheme names
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SELF="$ROOT/scripts/iterm-theme"
+PROFILE="$ROOT/home/Library/Application Support/iTerm2/DynamicProfiles/wc.json"
+TARGET="$HOME/Library/Application Support/iTerm2/DynamicProfiles/wc.json"
+REPO="mbadolato/iTerm2-Color-Schemes"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/iterm-theme"
+mkdir -p "$CACHE/schemes"
+
+die() { echo "iterm-theme: $*" >&2; exit 1; }
+
+list_schemes() {  # cached for a day
+  local list="$CACHE/schemes.txt"
+  if [[ ! -s "$list" || -n "$(find "$list" -mtime +0 2>/dev/null)" ]]; then
+    curl -fsS "https://api.github.com/repos/$REPO/git/trees/master:schemes" \
+      | python3 -c 'import json,sys
+for e in json.load(sys.stdin)["tree"]:
+    if e["path"].endswith(".itermcolors"): print(e["path"][:-len(".itermcolors")])' > "$list.tmp" \
+      && mv "$list.tmp" "$list"
+  fi
+  cat "$list"
+}
+
+fetch_scheme() {  # name -> path of cached .itermcolors
+  local name="$1" file="$CACHE/schemes/$1.itermcolors" enc
+  if [[ ! -s "$file" ]]; then
+    enc="$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$name")"
+    curl -fs "https://raw.githubusercontent.com/$REPO/master/schemes/$enc.itermcolors" -o "$file.tmp" \
+      || { rm -f "$file.tmp"; die "no scheme named \"$name\" (run without a name to browse)"; }
+    mv "$file.tmp" "$file"
+  fi
+  echo "$file"
+}
+
+preview() {
+  python3 - "$(fetch_scheme "$1")" "$1" <<'PY'
+import plistlib, sys
+s = plistlib.load(open(sys.argv[1], "rb"))
+def rgb(k):
+    c = s.get(k, {})
+    return tuple(round(c.get(f"{x} Component", 0) * 255) for x in ("Red", "Green", "Blue"))
+def lum(c):
+    def ch(v):
+        v /= 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = (ch(v) for v in c)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+def contrast(a, b):
+    la, lb = sorted((lum(a), lum(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+bg, fg = rgb("Background Color"), rgb("Foreground Color")
+on = lambda c: f"\033[48;2;{bg[0]};{bg[1]};{bg[2]}m\033[38;2;{c[0]};{c[1]};{c[2]}m"
+off = "\033[0m"
+names = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+print(f"{sys.argv[2]}\n")
+print(f"{on(fg)}  The quick brown fox — foreground on background  {off}\n")
+weak = []
+for i in range(16):
+    c = rgb(f"Ansi {i} Color")
+    r = contrast(c, bg)
+    label = ("bright " if i >= 8 else "") + names[i % 8]
+    flag = "  ← low contrast" if r < 3 and i not in (0, 8) else ""
+    if flag: weak.append(label)
+    print(f"{on(c)} {label:<15}{off} {r:4.1f}:1{flag}")
+print()
+print("readable: every color ≥ 3:1" if not weak else f"low contrast: {', '.join(weak)}")
+PY
+}
+
+mode=""
+case "${1:-}" in
+  --preview) preview "${2:?scheme name}"; exit 0 ;;
+  --list) list_schemes; exit 0 ;;
+  --mode) mode="${2:?both|dark|light}"; shift 2 ;;
+esac
+name="${1:-}"
+
+if [[ -z "$name" ]]; then
+  command -v fzf >/dev/null || die "pass a scheme name, or install fzf to browse"
+  name="$(list_schemes | fzf --prompt='iTerm2 theme > ' --height=90% --reverse \
+            --preview="'$SELF' --preview {}" --preview-window=right,60%)" || exit 1
+fi
+
+if [[ -z "$mode" ]]; then
+  if [[ -t 0 ]]; then
+    read -r -p "Use \"$name\" for [b]oth, [d]ark mode, or [l]ight mode? [B/d/l] " ans
+    case "$ans" in d|D) mode=dark ;; l|L) mode=light ;; *) mode=both ;; esac
+  else
+    mode=both
+  fi
+fi
+case "$mode" in both|dark|light) ;; *) die "--mode must be both, dark or light" ;; esac
+
+scheme="$(fetch_scheme "$name")"
+backup="$(mktemp)"; cp "$PROFILE" "$backup"
+trap 'rm -f "$backup"' EXIT
+
+python3 - "$scheme" "$PROFILE" "$mode" <<'PY'
+import json, plistlib, sys
+scheme_path, profile_path, mode = sys.argv[1:]
+scheme = plistlib.load(open(scheme_path, "rb"))
+doc = json.load(open(profile_path))
+p = doc["Profiles"][0]
+suffixes = {"both": ["", " (Dark)", " (Light)"], "dark": [" (Dark)"], "light": [" (Light)"]}[mode]
+# Optional colors: cleared when the new scheme lacks them, not kept from the old one.
+OPTIONAL = ["Bold Color", "Cursor Guide Color", "Cursor Text Color", "Link Color",
+            "Selected Text Color", "Badge Color", "Underline Color", "Tab Color"]
+for key in OPTIONAL:
+    if key not in scheme:
+        for s in suffixes:
+            p.pop(key + s, None)
+for key, color in scheme.items():
+    if key.endswith(" Color"):
+        for s in suffixes:
+            p[key + s] = color
+with open(profile_path, "w") as f:
+    json.dump(doc, f, indent=2, sort_keys=True)
+    f.write("\n")
+PY
+echo "Applied \"$name\" ($mode) to home/.../DynamicProfiles/wc.json"
+
+# Load it into iTerm2 now, if chezmoi is set up here.
+if command -v chezmoi >/dev/null && [[ -f "$HOME/.config/chezmoi/chezmoi.toml" ]]; then
+  chezmoi --source "$ROOT" apply "$TARGET"
+  echo "Loaded into iTerm2. Open a new tab with the \"wc\" profile to see it."
+  if [[ -t 0 ]]; then
+    read -r -p "Keep it? [Y/n] " keep
+    if [[ "$keep" =~ ^[Nn] ]]; then
+      cp "$backup" "$PROFILE"
+      chezmoi --source "$ROOT" apply "$TARGET"
+      echo "Reverted."
+      exit 0
+    fi
+  fi
+else
+  echo "Run 'just apply' to load it into iTerm2."
+fi
+echo "Next: git diff to review, then commit."

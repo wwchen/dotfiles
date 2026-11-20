@@ -45,6 +45,12 @@ iterm-export profile="Default":
     scripts/iterm-export "{{ profile }}"
     @echo "Next: git diff to review, then 'just apply' to load it into iTerm2."
 
+# Pick an iTerm2 color theme, or pass a name
+[group('mac')]
+[positional-arguments]
+iterm-theme *args:
+    @scripts/iterm-theme "$@"
+
 # Lint shell scripts
 [group('checks')]
 lint:
