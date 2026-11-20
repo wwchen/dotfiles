@@ -1,0 +1,10 @@
+# Managed by chezmoi.
+{{ if eq .chezmoi.os "darwin" -}}
+# Both are guarded: on a fresh Mac this file lands before Homebrew/Docker are installed.
+if [[ -x /opt/homebrew/bin/brew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv zsh)"
+fi
+if [[ -d "$HOME/.docker/bin" ]]; then
+  export PATH="$PATH:$HOME/.docker/bin"   # Docker Desktop CLI plugins
+fi
+{{- end }}

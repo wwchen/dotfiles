@@ -1,0 +1,58 @@
+#!/bin/bash
+# Runs the setup steps listed in home/.chezmoidata/steps.yaml — edit that file, not this one.
+# A step whose `check` passes is skipped, so this is cheap to run on every apply. A failing
+# step is reported and the rest still run; this script never fails the apply.
+set -uo pipefail
+
+export REPO={{ .chezmoi.workingTree | quote }}
+{{ if eq .chezmoi.os "darwin" -}}
+if [[ -x /opt/homebrew/bin/brew ]]; then eval "$(/opt/homebrew/bin/brew shellenv bash)"; fi
+{{- end }}
+
+has_tty() { { : </dev/tty; } 2>/dev/null; }
+yes_to_all() { [[ -n "${DOTFILES_YES:-}" ]]; }   # `just apply` already confirmed
+dec() { printf %s "$1" | base64 --decode; }
+
+step() {  # step <name> <check> <run> <hint> <ask> <tty>   (text fields base64-encoded)
+  local name check run hint ask="$5" tty="$6" ans
+  name="$(dec "$1")"; check="$(dec "$2")"; run="$(dec "$3")"; hint="$(dec "$4")"
+  if bash -c "$check" >/dev/null 2>&1 </dev/null; then
+    [[ -n "${DOTFILES_PLAN:-}" ]] || echo "✓ $name"
+    return
+  fi
+  if [[ -n "${DOTFILES_PLAN:-}" ]]; then   # `just apply`'s preview: say what would happen
+    if [[ -z "$run" ]]; then echo "needs you: $name${hint:+ — $hint}"; else echo "step: $name"; fi
+    return
+  fi
+  if [[ -z "$run" ]]; then
+    echo "! $name: ${hint:-not done}"
+    return
+  fi
+  if { [[ "$tty" == true ]] || { [[ "$ask" == true ]] && ! yes_to_all; }; } && ! has_tty; then
+    echo "! $name: skipped (needs a terminal)${hint:+ — $hint}"
+    return
+  fi
+  if [[ "$ask" == true ]] && ! yes_to_all; then
+    read -r -p "→ $name? [Y/n] " ans </dev/tty || ans=n
+    if [[ "$ans" =~ ^[Nn] ]]; then
+      echo "  skipped (asked again on the next apply)"
+      return
+    fi
+  fi
+  echo "→ $name"
+  if has_tty; then bash -c "$run" </dev/tty; else bash -c "$run" </dev/null; fi
+  if bash -c "$check" >/dev/null 2>&1 </dev/null; then
+    echo "✓ $name"
+  else
+    echo "✗ $name didn't finish${hint:+ — $hint}"
+  fi
+}
+
+{{ range .steps -}}
+{{-   $os := get . "os" -}}
+{{-   $if := get . "if" -}}
+{{-   if and (or (not $os) (eq $os $.chezmoi.os)) (or (not $if) (get $ $if)) }}
+step {{ .name | b64enc | quote }} {{ get . "check" | b64enc | quote }} {{ get . "run" | default "" | b64enc | quote }} {{ get . "hint" | default "" | b64enc | quote }} {{ if hasKey . "ask" }}{{ .ask }}{{ else }}true{{ end }} {{ get . "tty" | default false }}
+{{-   end }}
+{{- end }}
+exit 0

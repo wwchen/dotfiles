@@ -1,0 +1,21 @@
+#!/bin/bash
+# ~/.config/starship.toml is generated from a built-in Starship preset, not tracked.
+# To switch: change PRESET (options: `starship preset --list`), then `just apply`.
+# Changing this file is what makes chezmoi re-run it.
+set -euo pipefail
+PRESET="nerd-font-symbols"   # needs a Nerd Font (Brewfile: font-fira-code-nerd-font)
+
+if [[ -n "${DOTFILES_PLAN:-}" ]]; then
+  echo "starship: write ~/.config/starship.toml from the '$PRESET' preset"
+  exit 0
+fi
+
+{{ if eq .chezmoi.os "darwin" -}}
+eval "$(/opt/homebrew/bin/brew shellenv bash)"
+command -v starship >/dev/null || brew install starship
+{{- end }}
+command -v starship >/dev/null || { echo "starship not installed; skipping preset" >&2; exit 0; }
+
+mkdir -p "$HOME/.config"
+starship preset "$PRESET" -o "$HOME/.config/starship.toml" --force
+echo "starship: applied preset $PRESET"

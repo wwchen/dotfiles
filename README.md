@@ -4,6 +4,7 @@ One repo for setting up my Macs and managing my remote boxes.
 
 | What | Tool | Where |
 |---|---|---|
+| Dotfiles (zsh, git, starship) | [chezmoi](https://chezmoi.io) | `home/` |
 | Old configs (irssi, screen, 2013 bootstrap…) | — | `archive/` (not deployed) |
 
 ## Getting started
@@ -27,6 +28,10 @@ cd ~/code/wwchen/dotfiles && just apply
 `just apply` shows what it would change and asks before doing anything. The first run asks
 machine type and email, once.
 
+Everything else is data: setup steps live in [`home/.chezmoidata/steps.yaml`](home/.chezmoidata/steps.yaml)
+(name, a `check` command, and a `run` command or a `hint`). Every `just apply` runs the steps whose
+check fails, asking first unless `ask: false`; add a step there instead of editing a script.
+
 ## Day to day
 
 ```bash
@@ -34,3 +39,6 @@ just              # fuzzy-pick a command (or `just -l` to list, `just <Tab>` to 
 just diff         # what would change in ~
 just apply        # show what would change, confirm, apply (`just apply -y` skips the question)
 ```
+
+Edit dotfiles in `home/` (or `chezmoi edit ~/.zshrc`), never in `~` directly.
+Per-machine untracked overrides: `~/.zshrc.local`, `~/.gitconfig.local`.

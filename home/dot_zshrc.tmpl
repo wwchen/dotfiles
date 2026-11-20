@@ -1,0 +1,39 @@
+# Managed by chezmoi — edit in ~/code/wwchen/dotfiles/home/dot_zshrc.tmpl, then `just apply`.
+# Machine-specific or secret bits go in ~/.zshrc.local (not tracked).
+
+{{ if eq .chezmoi.os "darwin" -}}
+# Login shells get this from ~/.zprofile; non-login ones (some editor terminals) don't.
+[[ -z "$HOMEBREW_PREFIX" && -x /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv zsh)"
+{{- end }}
+
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME=""            # prompt comes from starship
+plugins=(git)
+source "$ZSH/oh-my-zsh.sh"
+
+{{ if eq .chezmoi.os "darwin" -}}
+source "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+bindkey '^?^I' autosuggest-accept     # <opt-tab>
+{{- end }}
+
+alias reload='source ~/.zshrc'
+alias zshrc='chezmoi edit --apply ~/.zshrc && reload'
+
+setopt no_share_history
+setopt no_nomatch
+setopt no_extended_glob
+setopt no_glob
+
+{{ if eq .chezmoi.os "darwin" -}}
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+export PATH="$PATH:$HOME/.lmstudio/bin"
+{{- end }}
+
+{{ if eq .machine "work" -}}
+# --- work machine ---
+{{- end }}
+
+[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
+
+eval "$(starship init zsh)"
