@@ -9,12 +9,12 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 default:
     @if command -v fzf >/dev/null && [ -t 0 ]; then just --choose; else just --list --unsorted; fi
 
-# Show what `apply` would change in your home folder
+# Show what `apply` would change in your home folder (uses this checkout)
 [group('mac')]
 diff:
-    chezmoi diff
+    chezmoi --source {{ justfile_directory() }} diff
 
 # Apply dotfiles; also re-runs chezmoi scripts whose inputs changed
 [group('mac')]
 apply:
-    chezmoi apply -v
+    chezmoi --source {{ justfile_directory() }} apply -v

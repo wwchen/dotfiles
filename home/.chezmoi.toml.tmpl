@@ -1,7 +1,6 @@
 {{- /* Asked once on `chezmoi init`; answers are saved in ~/.config/chezmoi/chezmoi.toml. */ -}}
 {{- $machine := promptChoiceOnce . "machine" "Machine type" (list "personal" "work") "personal" -}}
 {{- $email := promptStringOnce . "email" "Git email for this machine" "github@iamchen.com" -}}
-{{- $interactive := stdinIsATTY -}}
 
 sourceDir = {{ .chezmoi.workingTree | quote }}
 
@@ -9,8 +8,6 @@ sourceDir = {{ .chezmoi.workingTree | quote }}
     name = "William Chen"
     machine = {{ $machine | quote }}
     email = {{ $email | quote }}
-    # Run scripts ask before slow steps (brew bundle) only when a terminal is attached.
-    interactive = {{ $interactive }}
 
 [diff]
     exclude = ["scripts"]
