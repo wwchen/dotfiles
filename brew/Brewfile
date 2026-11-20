@@ -1,7 +1,6 @@
 # Installed on every Mac. Machine-specific extras: Brewfile.personal / Brewfile.work.
+# Dev tools are opt-in per Mac: Brewfile.dev (asked once on `chezmoi init`).
 # Sync with what's actually installed: `just brew-sync`.
-
-tap "docker/tap", trusted: true
 
 # --- shell & core CLI ---
 brew "chezmoi"
@@ -20,28 +19,6 @@ cask "1password"
 cask "1password-cli"
 mas "1Password for Safari", id: 1569813296
 
-# --- dev ---
-brew "actionlint"
-brew "docker"
-brew "libpq", link: true
-brew "maven"
-brew "node"
-brew "openjdk"
-brew "openjdk@25"
-brew "ruff"
-brew "tilt"
-cask "claude-code"
-cask "docker-desktop"
-cask "docker/tap/sbx", trusted: true
-cask "cursor"
-cask "dbeaver-community"
-cask "intellij-idea"
-cask "sublime-text"
-cask "visual-studio-code"
-npm "neon"
-npm "pnpm"
-npm "vercel"
-
 # --- infra (this repo's infra/) ---
 brew "ansible"
 brew "ansible-lint"
@@ -55,7 +32,9 @@ cask "font-fira-code-nerd-font"
 # --- apps ---
 cask "claude"
 cask "google-chrome"
+cask "istat-menus"
 cask "raycast"
+cask "thebrowsercompany-dia"
 cask "tailscale-app"
 mas "Amphetamine", id: 937984704
 mas "Magnet", id: 441258766

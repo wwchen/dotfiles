@@ -3,14 +3,10 @@
 cask "brave-browser"
 cask "cleanshot"
 cask "granola"
-cask "istat-menus"
 cask "jdownloader"
 cask "logi-options+"
 cask "notion"
 cask "phoenix-slides"
 cask "spotify"
-cask "thebrowsercompany-dia"
 cask "vlc"
 cask "zoom"
-mas "Flighty", id: 1358823008
-mas "Paprika Recipe Manager 4", id: 1303222628

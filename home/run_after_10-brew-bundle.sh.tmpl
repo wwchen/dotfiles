@@ -13,6 +13,9 @@ exit 0
 eval "$(/opt/homebrew/bin/brew shellenv bash)"
 BREW_DIR={{ joinPath $root "brew" | quote }}
 files=("$BREW_DIR/Brewfile" "$BREW_DIR/Brewfile.{{ .machine }}")
+{{- if get . "dev" }}
+files+=("$BREW_DIR/Brewfile.dev")   # opted in at `chezmoi init`
+{{- end }}
 
 # Adopt apps that were installed by hand (e.g. from a .dmg) instead of failing.
 export HOMEBREW_CASK_OPTS="--adopt"
