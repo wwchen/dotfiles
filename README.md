@@ -6,6 +6,7 @@ One repo for setting up my Macs and managing my remote boxes.
 |---|---|---|
 | Core apps: CLI basics, 1Password, iTerm2, starship | Homebrew Bundle | `brew/Brewfile.core` |
 | Their setup: `.zshrc`, starship preset, iTerm2 profile | [chezmoi](https://chezmoi.io) | `home/` |
+| Dotfiles: `.gitconfig`, oh-my-zsh and other setup steps | chezmoi | `home/`, `home/.chezmoidata/steps.yaml` |
 | Old configs (irssi, screen, 2013 bootstrap…) | — | `archive/` (not deployed) |
 
 ## Getting started
@@ -34,6 +35,10 @@ and settings only exist on Macs whose Brewfiles list `cask "iterm2"`, starship's
 `brew "starship"`, and so on (`home/.chezmoitemplates/brew-listed`). The brew step reruns
 whenever a Brewfile changes.
 
+Setup steps live in [`home/.chezmoidata/steps.yaml`](home/.chezmoidata/steps.yaml) (name, a
+`check` command, and a `run` command or a `hint`). Every `just apply` runs the steps whose
+check fails, asking first unless `ask: false`; add a step there instead of editing a script.
+
 ## Day to day
 
 ```bash
@@ -50,4 +55,4 @@ The export keeps only the settings that differ from iTerm2's factory defaults, s
 diff shows what you actually changed.
 
 Edit dotfiles in `home/` (or `chezmoi edit ~/.zshrc`), never in `~` directly.
-Per-machine untracked overrides: `~/.zshrc.local`.
+Per-machine untracked overrides: `~/.zshrc.local`, `~/.gitconfig.local`.

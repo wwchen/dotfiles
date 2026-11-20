@@ -1,0 +1,11 @@
+# Setup steps, run in order on every apply (by home/run_after_50-steps.sh.tmpl).
+#   check  exits 0 when done; the step is then skipped
+#   run    does it; without one, `hint` is shown (something only you can do)
+#   ask    ask first (default true)    tty  needs a terminal
+#   os     only on this OS             if   only when this `chezmoi init` answer is true
+# Commands run in bash with Homebrew on PATH; $REPO is this checkout.
+steps:
+  - name: oh-my-zsh
+    check: test -d "$HOME/.oh-my-zsh"
+    run: RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    ask: false

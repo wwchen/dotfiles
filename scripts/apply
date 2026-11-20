@@ -32,6 +32,7 @@ done < "$tmp/status"
 
 echo "${bold}Setup${reset}"
 planned=0
+needs_you=0
 while IFS= read -r line; do
   [[ "${line:1:1}" == R ]] || continue
   name="${line:3}"
@@ -40,14 +41,18 @@ while IFS= read -r line; do
   "${cz[@]}" execute-template < "${src[0]}" > "$tmp/script"
   out="$(DOTFILES_PLAN=1 bash "$tmp/script" </dev/null 2>&1 || true)"
   if [[ -n "$out" ]]; then
-    while IFS= read -r l; do echo "  $l"; done <<<"$out"
-    todo=1; planned=1
+    while IFS= read -r l; do
+      echo "  $l"
+      # "needs you" lines are yours to do; they aren't changes.
+      [[ "$l" == "needs you:"* ]] && needs_you=1 || todo=1
+    done <<<"$out"
+    planned=1
   fi
 done < "$tmp/status"
 (( planned )) || echo "  ${dim}nothing to do${reset}"
 
 if (( ! todo )); then
-  echo; echo "Nothing to apply."
+  echo; echo "Nothing to apply.$( (( needs_you )) && echo " (The 'needs you' items above are up to you.)")"
   exit 0
 fi
 
