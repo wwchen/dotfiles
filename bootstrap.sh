@@ -4,7 +4,7 @@
 #
 #   1. Prerequisites  Xcode Command Line Tools, Homebrew
 #   2. Core apps      brew/Brewfile.core: every entry listed with ✓/+, then one question if any are pending
-#   3. Setup          SSH key → GitHub (gh login, key added) → clone this repo over SSH
+#   3. Setup          GitHub login (gh) → gh repo clone this repo
 #                     → offer `just apply` (it shows its plan and asks before changing anything)
 #
 # Fresh Mac:
@@ -12,19 +12,18 @@
 # From a checkout (uses it; no clone):
 #   ./bootstrap.sh       ask at each step
 #   ./bootstrap.sh -y    don't ask   (piped: ... | bash -s -- -y). Steps that are interactive by
-#                        nature (passphrase, GitHub login) still need a terminal.
+#                        nature (GitHub login) still need a terminal.
 #
 # Overrides: DOTFILES_DIR  exact clone path (skips the code-root question)
 #            DOTFILES_REF  branch the core Brewfile is read from without a checkout (master)
-#            DOTFILES_REPO what to clone (git@github.com:wwchen/dotfiles.git)
+#            DOTFILES_REPO what to clone: owner/name (over HTTPS) or a URL (wwchen/dotfiles)
 set -euo pipefail
 
 YES=0
 [[ "${1:-}" == "-y" || "${1:-}" == "--yes" ]] && YES=1
 GH_REPO="wwchen/dotfiles"
 REF="${DOTFILES_REF:-master}"
-REPO_URL="${DOTFILES_REPO:-git@github.com:$GH_REPO.git}"
-KEY="$HOME/.ssh/id_ed25519"
+REPO="${DOTFILES_REPO:-$GH_REPO}"
 # Where the clone went, so re-runs reuse it instead of asking (and cloning) again.
 CHECKOUT_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/checkout"
 
@@ -88,20 +87,82 @@ brewfile_entries() {  # brewfile_entries FILE -> each entry's name, one per line
   sed -nE 's/^[[:space:]]*(tap|brew|cask|mas|npm) "([^"]+)".*/\2/p' "$1"
 }
 
-brewfile_pending() {  # brewfile_pending FILE -> names of entries brew says need something
+brewfile_pending() {  # brewfile_pending FILE -> names of entries that need something
   # brew bundle check lists them on stderr, worded per kind: "→ Formula jq needs to be
   # installed.", "→ Tap x needs to be tapped.", "→ Formula libpq needs to be linked.",
   # "→ npm Package y needs to be installed.", ... Matching each entry's own name copes with all
-  # of those. Returns 2 (with brew's output on stderr) if the check failed but named none of
-  # the entries, e.g. a broken Brewfile.
-  local out name found=0
+  # of those. Entries already on this Mac outside Homebrew (brewfile_present) aren't pending.
+  # Returns 2 (with brew's output on stderr) if the check failed but named none of the
+  # entries, e.g. a broken Brewfile.
+  local out type name found=0
   out="$(brew bundle check --no-upgrade --verbose --file="$1" 2>&1)" && return 0
-  while IFS= read -r name; do
-    if grep -qF " $name needs to be " <<<"$out"; then echo "$name"; found=1; fi
-  done < <(brewfile_entries "$1" | awk '!seen[$0]++')   # each name once, even if listed twice
+  while read -r type name; do
+    grep -qF " $name needs to be " <<<"$out" || continue
+    found=1
+    brewfile_present "$type" "$name" || echo "$name"
+  done < <(sed -nE 's/^[[:space:]]*(tap|brew|cask|mas|npm) "([^"]+)".*/\1 \2/p' "$1" | awk '!seen[$0]++')
   (( found )) && return 0
   echo "$out" >&2
   return 2
+}
+
+brewfile_present() {  # brewfile_present TYPE NAME -> 0 if the entry is on this Mac without Homebrew
+  # e.g. macOS's own /usr/bin/jq, or 1Password installed from its website. Formulae: a command
+  # of that name on PATH. Casks: what the cask would install (brewfile_cask_files) is all there.
+  # App Store apps: /Applications/NAME.app. Taps and npm packages: never.
+  local kind file found=0
+  case "$1" in
+    brew) type -P "${2##*/}" >/dev/null ;;
+    mas) [[ -d "/Applications/$2.app" ]] ;;
+    cask)
+      while read -r kind file; do
+        [[ -n "$kind" ]] || continue
+        found=1
+        case "$kind" in
+          app) [[ -d "/Applications/$file" || -d "$HOME/Applications/$file" ]] || return 1 ;;
+          binary) type -P "$file" >/dev/null || return 1 ;;
+          font) [[ -f "$HOME/Library/Fonts/$file" || -f "/Library/Fonts/$file" ]] || return 1 ;;
+        esac
+      done < <(brewfile_cask_files "$2")
+      (( found )) ;;
+    *) return 1 ;;
+  esac
+}
+
+brewfile_cask_files() {  # brewfile_cask_files CASK -> "<app|binary|font> <file name>" per file it installs
+  # Only its main kind: its apps if it has any, else its commands, else its fonts (so a missing
+  # `code` command doesn't make a hand-installed VS Code pending). Nothing if brew doesn't know
+  # the cask. Parsed with JavaScript for Automation: every Mac has it; jq may not be there yet.
+  local json
+  json="$(brew info --cask --json=v2 "$1" 2>/dev/null)" || return 0
+  osascript -l JavaScript -e '
+    function run(argv) {
+      var found = { app: [], binary: [], font: [] };
+      (JSON.parse(argv[0]).casks || []).forEach(function (c) {
+        (c.artifacts || []).forEach(function (a) {
+          Object.keys(found).forEach(function (k) {
+            if (!Array.isArray(a[k])) return;
+            var opts = a[k].filter(function (x) { return x && typeof x === "object"; })[0] || {};
+            var path = a.target || opts.target || a[k].filter(function (x) { return typeof x === "string"; })[0];
+            if (!path) return;
+            // Apps keep their folder under /Applications (e.g. "Adobe X/X.app"); others by name.
+            var name = k === "app" && path.indexOf("/Applications/") === 0
+              ? path.slice("/Applications/".length) : path.split("/").pop();
+            found[k].push(k + " " + name);
+          });
+        });
+      });
+      return (found.app.length ? found.app : found.binary.length ? found.binary : found.font).join("\n");
+    }' "$json" 2>/dev/null
+}
+
+brewfile_select() {  # brewfile_select FILE NAMES_FILE -> FILE's entry lines (options kept) for those names
+  # The Brewfile to install from when only some entries are pending.
+  awk 'FILENAME == ARGV[1] { want[$0] = 1; next }
+       match($0, /^[[:space:]]*(tap|brew|cask|mas|npm) "[^"]+"/) {
+         name = substr($0, RSTART, RLENGTH); sub(/^[^"]*"/, "", name); sub(/"$/, "", name)
+         if ((name in want) && !seen[$0]++) print
+       }' "$2" "$1"
 }
 
 brewfile_show() {  # brewfile_show FILE PENDING_LIST -> every entry in 3 columns, ✓ done / + pending
@@ -178,9 +239,13 @@ else
   fi
   if (( status != 0 || n_pending > 0 )); then
     what="the $n_pending pending ($(paste -sd ',' "$tmp/pending" | sed 's/,/, /g'))"
-    (( status != 0 )) && what="brew bundle anyway"
+    # Only the pending entries: the rest are installed, some of them without Homebrew, and
+    # brew would install those again (or fail to --adopt an app that isn't the same version).
+    brewfile_select "$brewfile" "$tmp/pending" > "$tmp/Brewfile.pending"
+    install_from="$tmp/Brewfile.pending"
+    if (( status != 0 )); then what="brew bundle anyway"; install_from="$brewfile"; fi
     if ask "Install $what"; then
-      if HOMEBREW_CASK_OPTS="--adopt" from_tty brew bundle install --no-upgrade --file="$brewfile"; then
+      if HOMEBREW_CASK_OPTS="--adopt" from_tty brew bundle install --no-upgrade --file="$install_from"; then
         ok "core apps installed"
       else
         warn "some failed; re-run to retry just those"
@@ -191,7 +256,7 @@ fi
 
 # ════════════════════════════════════════════════════════════════════════════════════════
 phase "3/3 Setup"
-if ! ask "Continue to setup (SSH key, GitHub, clone this repo)"; then
+if ! ask "Continue to setup (GitHub login, clone this repo)"; then
   echo; ok "Stopped before setup. Re-run any time to continue."
   exit 0
 fi
@@ -206,66 +271,16 @@ elif ask "Install ${want[*]}"; then
 fi
 for t in gh chezmoi just; do command -v "$t" >/dev/null || die "$t is required for setup."; done
 
-step "SSH key"
-if [[ -f "$KEY" && -f "$KEY.pub" ]]; then
-  ok "$KEY"
-elif [[ -f "$KEY" ]]; then
-  # Private key without its .pub (e.g. restored from a backup): rebuild the public half.
-  need_tty "Reading the key's passphrase"
-  ssh-keygen -y -f "$KEY" </dev/tty > "$KEY.pub.tmp" && mv "$KEY.pub.tmp" "$KEY.pub"
-  ok "rebuilt $KEY.pub from the private key"
-elif ask "Create an SSH key at $KEY (you'll pick a passphrase)"; then
-  need_tty "Creating an SSH key (passphrase)"
-  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
-  if [[ -f "$KEY.pub" ]]; then
-    # A .pub without its private key is useless (and must not be uploaded): set it aside.
-    mv "$KEY.pub" "$KEY.pub.orphaned-$(date +%Y%m%d%H%M%S)"
-    warn "moved an orphaned $KEY.pub aside"
-  fi
-  ssh-keygen -t ed25519 -C "$(whoami)@$(scutil --get LocalHostName 2>/dev/null || hostname -s)" -f "$KEY" </dev/tty
-fi
-[[ -f "$KEY" && -f "$KEY.pub" ]] || die "No SSH key; setup needs one to clone over SSH."
-# ssh -G shows the effective settings for github.com (Include, Match and aliases resolved).
-if ssh -G github.com 2>/dev/null | grep -qx 'addkeystoagent true'; then
-  ok "github.com is set up in ~/.ssh/config"
-else
-  # Keep the passphrase in the macOS keychain and load the key on first use.
-  printf '\nHost github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile %s\n' "$KEY" >> "$HOME/.ssh/config"
-  chmod 600 "$HOME/.ssh/config"
-  ok "added a github.com entry to ~/.ssh/config"
-fi
-
 step "GitHub login"
 if gh auth status -h github.com >/dev/null 2>&1; then
   :
 elif ask "Log in to GitHub with gh (opens a browser)"; then
   need_tty "Logging in to GitHub"
-  gh auth login -h github.com -p ssh -w --skip-ssh-key -s admin:public_key </dev/tty
+  gh auth login -h github.com -p https -w </dev/tty
 fi
-gh auth status -h github.com >/dev/null 2>&1 || die "Setup needs a GitHub login to add the SSH key."
+gh auth status -h github.com >/dev/null 2>&1 || die "Setup needs a GitHub login to clone this repo."
 login="$(gh api user --jq .login 2>/dev/null || echo '?')"
 ok "logged in as $login"
-
-step "SSH key on GitHub"
-pub="$(cut -d' ' -f1,2 "$KEY.pub")"
-if gh api user/keys --jq '.[].key' 2>/dev/null | grep -qxF "$pub"; then
-  ok "already on $login's account"
-elif ask "Add $KEY.pub to GitHub account $login"; then
-  title="$(scutil --get ComputerName 2>/dev/null || hostname -s) ($(date +%F))"
-  if ! err="$(gh ssh-key add "$KEY.pub" --title "$title" 2>&1)"; then
-    if ! grep -qiE 'admin:public_key|scope|HTTP 404' <<<"$err"; then
-      die "Couldn't add the key: $err"
-    fi
-    # Logged in without the scope to manage keys: ask for it, then retry once.
-    if [[ -n "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]]; then
-      die "The token in GH_TOKEN/GITHUB_TOKEN can't manage SSH keys (needs admin:public_key). Unset it, or add $KEY.pub on github.com yourself."
-    fi
-    need_tty "Granting gh the admin:public_key scope"
-    gh auth refresh -h github.com -s admin:public_key </dev/tty
-    gh ssh-key add "$KEY.pub" --title "$title"
-  fi
-  ok "added to $login as \"$title\""
-fi
 
 step "dotfiles repo"
 if [[ -n "$ROOT" ]]; then
@@ -284,17 +299,12 @@ else
     ok "at $ROOT"
   elif [[ -e "$ROOT" && -n "$(ls -A "$ROOT" 2>/dev/null)" ]]; then
     die "$ROOT exists but isn't this repo; set DOTFILES_DIR to clone somewhere else."
-  elif ask "Clone $REPO_URL to $ROOT"; then
-    if ! ssh-keygen -F github.com >/dev/null 2>&1; then
-      # Pin GitHub's published host keys (fetched over HTTPS) instead of trusting whatever
-      # answers the first SSH connection.
-      mkdir -p "$HOME/.ssh"
-      gh api meta --jq '.ssh_keys[] | "github.com " + .' >> "$HOME/.ssh/known_hosts" \
-        || die "Couldn't fetch GitHub's SSH host keys."
-      ok "added GitHub's SSH host keys to ~/.ssh/known_hosts"
-    fi
+  elif ask "Clone $REPO to $ROOT"; then
+    # Over HTTPS with your gh login, whatever protocol gh is set to.
+    clone_from="$REPO"
+    [[ "$REPO" == *:* ]] || clone_from="https://github.com/$REPO"
     mkdir -p "$(dirname "$ROOT")"
-    git clone "$REPO_URL" "$ROOT"
+    gh repo clone "$clone_from" "$ROOT" || die "Couldn't clone $REPO; re-run to retry."
   fi
   [[ -f "$ROOT/.chezmoiroot" ]] || die "The repo isn't at $ROOT; re-run to clone it."
   mkdir -p "$(dirname "$CHECKOUT_FILE")" && echo "$ROOT" > "$CHECKOUT_FILE"
