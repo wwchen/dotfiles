@@ -1,31 +1,24 @@
 #!/bin/bash
-# Bootstrap a fresh Mac in three phases. Each phase asks before it starts, and every step
-# checks first, so re-running only does what's still missing.
+# Bootstrap a fresh Mac. Every step checks first, so re-running only does what's still missing.
 #
 #   1. Prerequisites  Xcode Command Line Tools, Homebrew
 #   2. Core apps      brew/Brewfile.core: every entry listed with ✓/+, then one question if any are pending
-#   3. Setup          GitHub login (gh) → gh repo clone this repo
-#                     → offer `just apply` (it shows its plan and asks before changing anything)
+#   3. Next steps     prints the commands to finish (gh login, clone this repo, `just apply`),
+#                     leaving out what's already done. Bootstrap runs none of them.
 #
 # Fresh Mac:
 #   curl -fsSL https://raw.githubusercontent.com/wwchen/dotfiles/master/bootstrap.sh | bash
 # From a checkout (uses it; no clone):
 #   ./bootstrap.sh       ask at each step
-#   ./bootstrap.sh -y    don't ask   (piped: ... | bash -s -- -y). Steps that are interactive by
-#                        nature (GitHub login) still need a terminal.
+#   ./bootstrap.sh -y    don't ask   (piped: ... | bash -s -- -y)
 #
-# Overrides: DOTFILES_DIR  exact clone path (skips the code-root question)
-#            DOTFILES_REF  branch the core Brewfile is read from without a checkout (master)
-#            DOTFILES_REPO what to clone: owner/name (over HTTPS) or a URL (wwchen/dotfiles)
+# Override: DOTFILES_REF  branch the core Brewfile is read from without a checkout (master)
 set -euo pipefail
 
 YES=0
 [[ "${1:-}" == "-y" || "${1:-}" == "--yes" ]] && YES=1
 GH_REPO="wwchen/dotfiles"
 REF="${DOTFILES_REF:-master}"
-REPO="${DOTFILES_REPO:-$GH_REPO}"
-# Where the clone went, so re-runs reuse it instead of asking (and cloning) again.
-CHECKOUT_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/checkout"
 
 bold=$'\e[1m'; blue=$'\e[34m'; yellow=$'\e[33m'; green=$'\e[32m'; red=$'\e[31m'; reset=$'\e[0m'
 phase() { echo; echo "${bold}${blue}━━ $* ━━${reset}"; }
@@ -59,28 +52,6 @@ ask() {  # ask "question" -> 0 for yes (default), 1 for no; Ctrl-D cancels
   done
 }
 
-ask_value() {  # ask_value "question" default -> prints the answer (default with -y or Enter)
-  local ans=""
-  if (( ! YES )); then
-    need_tty "Answering questions"
-    read -r -p "${yellow}$1${reset} [$2] " ans </dev/tty || cancelled
-  fi
-  echo "${ans:-$2}"
-}
-
-abspath() {  # ~ and ~/x expand to the home folder; other relative paths are under it too
-  local p="${1%/}"
-  # shellcheck disable=SC2088  # matching a literal ~ typed by the user
-  case "$p" in
-    "") p="$HOME" ;;
-    "~") p="$HOME" ;;
-    "~/"*) p="$HOME/${p#\~/}" ;;
-    /*) ;;
-    *) p="$HOME/$p" ;;
-  esac
-  echo "$p"
-}
-
 # Brewfile helpers. Kept in this file on purpose: bootstrap runs before the repo is cloned, so
 # it can't load anything from it.
 brewfile_entries() {  # brewfile_entries FILE -> each entry's name, one per line, in file order
@@ -94,51 +65,69 @@ brewfile_pending() {  # brewfile_pending FILE -> names of entries that need some
   # of those. Entries already on this Mac outside Homebrew (brewfile_present) aren't pending.
   # Returns 2 (with brew's output on stderr) if the check failed but named none of the
   # entries, e.g. a broken Brewfile.
-  local out type name found=0
+  local out type name key files="" found=0
+  local flagged=() casks=()
   out="$(brew bundle check --no-upgrade --verbose --file="$1" 2>&1)" && return 0
   while read -r type name; do
     grep -qF " $name needs to be " <<<"$out" || continue
     found=1
-    brewfile_present "$type" "$name" || echo "$name"
+    flagged+=("$type $name")
+    if [[ "$type" == cask ]]; then casks+=("$name"); fi
   done < <(sed -nE 's/^[[:space:]]*(tap|brew|cask|mas|npm) "([^"]+)".*/\1 \2/p' "$1" | awk '!seen[$0]++')
-  (( found )) && return 0
-  echo "$out" >&2
-  return 2
+  if (( ! found )); then
+    echo "$out" >&2
+    return 2
+  fi
+  # Look up every flagged cask in one brew call: each call spends a moment starting brew.
+  if (( ${#casks[@]} )); then files="$(brewfile_cask_files "${casks[@]}")"; fi
+  for key in "${flagged[@]}"; do
+    brewfile_present "${key%% *}" "${key#* }" "$files" || echo "${key#* }"
+  done
 }
 
-brewfile_present() {  # brewfile_present TYPE NAME -> 0 if the entry is on this Mac without Homebrew
+brewfile_present() {  # brewfile_present TYPE NAME [CASK_FILES] -> 0 if the entry is on this Mac without Homebrew
   # e.g. macOS's own /usr/bin/jq, or 1Password installed from its website. Formulae: a command
-  # of that name on PATH. Casks: what the cask would install (brewfile_cask_files) is all there.
-  # App Store apps: /Applications/NAME.app. Taps and npm packages: never.
-  local kind file found=0
+  # of that name on PATH. Casks: what the cask would install is all there (CASK_FILES, from
+  # brewfile_cask_files; looked up if not given). App Store apps: /Applications/NAME.app.
+  # Taps and npm packages: never.
+  local cask kind file list found=0
   case "$1" in
     brew) type -P "${2##*/}" >/dev/null ;;
     mas) [[ -d "/Applications/$2.app" ]] ;;
     cask)
-      while read -r kind file; do
-        [[ -n "$kind" ]] || continue
+      if (( $# >= 3 )); then list="$3"; else list="$(brewfile_cask_files "$2")"; fi
+      while read -r cask kind file; do
+        [[ "$cask" == "$2" && -n "$kind" ]] || continue
         found=1
         case "$kind" in
           app) [[ -d "/Applications/$file" || -d "$HOME/Applications/$file" ]] || return 1 ;;
           binary) type -P "$file" >/dev/null || return 1 ;;
           font) [[ -f "$HOME/Library/Fonts/$file" || -f "/Library/Fonts/$file" ]] || return 1 ;;
         esac
-      done < <(brewfile_cask_files "$2")
+      done <<<"$list"
       (( found )) ;;
     *) return 1 ;;
   esac
 }
 
-brewfile_cask_files() {  # brewfile_cask_files CASK -> "<app|binary|font> <file name>" per file it installs
-  # Only its main kind: its apps if it has any, else its commands, else its fonts (so a missing
-  # `code` command doesn't make a hand-installed VS Code pending). Nothing if brew doesn't know
-  # the cask. Parsed with JavaScript for Automation: every Mac has it; jq may not be there yet.
-  local json
-  json="$(brew info --cask --json=v2 "$1" 2>/dev/null)" || return 0
+brewfile_cask_files() {  # brewfile_cask_files CASK... -> "<cask> <app|binary|font> <file name>" per file it installs
+  # Only each cask's main kind: its apps if it has any, else its commands, else its fonts (so
+  # a missing `code` command doesn't make a hand-installed VS Code pending). Nothing for a cask
+  # brew doesn't know. Parsed with JavaScript for Automation: every Mac has it; jq may not be
+  # there yet.
+  local json c
+  if ! json="$(brew info --cask --json=v2 "$@" 2>/dev/null)"; then
+    # One unknown cask fails the whole call: look the others up one by one.
+    if (( $# > 1 )); then for c in "$@"; do brewfile_cask_files "$c"; done; fi
+    return 0
+  fi
   osascript -l JavaScript -e '
     function run(argv) {
-      var found = { app: [], binary: [], font: [] };
+      var asked = argv.slice(1), out = [];
       (JSON.parse(argv[0]).casks || []).forEach(function (c) {
+        var cask = asked.filter(function (n) { return n === c.token || n === c.full_token; })[0];
+        if (!cask) return;
+        var found = { app: [], binary: [], font: [] };
         (c.artifacts || []).forEach(function (a) {
           Object.keys(found).forEach(function (k) {
             if (!Array.isArray(a[k])) return;
@@ -148,12 +137,13 @@ brewfile_cask_files() {  # brewfile_cask_files CASK -> "<app|binary|font> <file 
             // Apps keep their folder under /Applications (e.g. "Adobe X/X.app"); others by name.
             var name = k === "app" && path.indexOf("/Applications/") === 0
               ? path.slice("/Applications/".length) : path.split("/").pop();
-            found[k].push(k + " " + name);
+            found[k].push(cask + " " + k + " " + name);
           });
         });
+        out = out.concat(found.app.length ? found.app : found.binary.length ? found.binary : found.font);
       });
-      return (found.app.length ? found.app : found.binary.length ? found.binary : found.font).join("\n");
-    }' "$json" 2>/dev/null
+      return out.join("\n");
+    }' "$json" "$@" 2>/dev/null
 }
 
 brewfile_select() {  # brewfile_select FILE NAMES_FILE -> FILE's entry lines (options kept) for those names
@@ -227,8 +217,11 @@ if [[ -z "$brewfile" || ! -f "$brewfile" ]]; then
   warn "no brew/Brewfile.core on $REF; skipping core apps"
 else
   status=0
-  brewfile_pending "$brewfile" > "$tmp/pending" 2> "$tmp/check-error" || status=$?
   echo "  brew/Brewfile.core   (${green}✓${reset} done, ${yellow}+${reset} to install/update)"
+  # brew takes a few seconds to check; say so, then clear the line once it's done.
+  if [[ -t 1 ]]; then printf '    checking what is installed...'; fi
+  brewfile_pending "$brewfile" > "$tmp/pending" 2> "$tmp/check-error" || status=$?
+  if [[ -t 1 ]]; then printf '\r\033[K'; fi
   brewfile_show "$brewfile" "$tmp/pending"
   n_pending=$(wc -l < "$tmp/pending" | tr -d ' ')
   if (( status != 0 )); then
@@ -255,68 +248,31 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════════════════════
-phase "3/3 Setup"
-if ! ask "Continue to setup (GitHub login, clone this repo)"; then
-  echo; ok "Stopped before setup. Re-run any time to continue."
-  exit 0
+phase "3/3 Next steps"
+# Bootstrap stops here: the rest is printed for you to run, minus what's already done.
+# (gh, chezmoi and just come with the core apps in phase 2.)
+next=()
+if ! { command -v gh >/dev/null && gh auth status -h github.com >/dev/null 2>&1; }; then
+  next+=("gh auth login -h github.com -p ssh -w")
 fi
-
-step "Tools for setup (gh, chezmoi, just)"
-want=()
-for t in gh chezmoi just; do command -v "$t" >/dev/null || want+=("$t"); done
-if (( ${#want[@]} == 0 )); then
-  ok "installed"
-elif ask "Install ${want[*]}"; then
-  brew install "${want[@]}"
+# This checkout if bootstrap runs from one, else ~/code/wwchen/dotfiles (clone it anywhere).
+dir="${ROOT:-$HOME/code/$GH_REPO}"
+shown="$(printf '%q' "$dir")"
+if [[ "$dir" == "$HOME/"* ]]; then
+  # shellcheck disable=SC2088  # a literal ~ for you to paste; your shell expands it
+  shown="~/$(printf '%q' "${dir#"$HOME/"}")"
 fi
-for t in gh chezmoi just; do command -v "$t" >/dev/null || die "$t is required for setup."; done
-
-step "GitHub login"
-if gh auth status -h github.com >/dev/null 2>&1; then
-  :
-elif ask "Log in to GitHub with gh (opens a browser)"; then
-  need_tty "Logging in to GitHub"
-  gh auth login -h github.com -p https -w </dev/tty
+if [[ ! -f "$dir/.chezmoiroot" ]]; then
+  # gh clones over the protocol it was logged in with: SSH, with the login line above.
+  next+=("gh repo clone $GH_REPO $shown")
 fi
-gh auth status -h github.com >/dev/null 2>&1 || die "Setup needs a GitHub login to clone this repo."
-login="$(gh api user --jq .login 2>/dev/null || echo '?')"
-ok "logged in as $login"
+next+=("cd $shown && just apply")
 
-step "dotfiles repo"
-if [[ -n "$ROOT" ]]; then
-  ok "using this checkout: $ROOT"
-else
-  remembered="$(cat "$CHECKOUT_FILE" 2>/dev/null || true)"
-  if [[ -n "${DOTFILES_DIR:-}" ]]; then
-    ROOT="$(abspath "$DOTFILES_DIR")"
-  elif [[ -n "$remembered" && -f "$remembered/.chezmoiroot" ]]; then
-    ROOT="$remembered"
-  else
-    # shellcheck disable=SC2088  # shown to the user as-is, expanded by abspath
-    ROOT="$(abspath "$(ask_value "Root folder for your code checkouts" "~/code")")/wwchen/dotfiles"
-  fi
-  if [[ -f "$ROOT/.chezmoiroot" ]]; then
-    ok "at $ROOT"
-  elif [[ -e "$ROOT" && -n "$(ls -A "$ROOT" 2>/dev/null)" ]]; then
-    die "$ROOT exists but isn't this repo; set DOTFILES_DIR to clone somewhere else."
-  elif ask "Clone $REPO to $ROOT"; then
-    # Over HTTPS with your gh login, whatever protocol gh is set to.
-    clone_from="$REPO"
-    [[ "$REPO" == *:* ]] || clone_from="https://github.com/$REPO"
-    mkdir -p "$(dirname "$ROOT")"
-    gh repo clone "$clone_from" "$ROOT" || die "Couldn't clone $REPO; re-run to retry."
-  fi
-  [[ -f "$ROOT/.chezmoiroot" ]] || die "The repo isn't at $ROOT; re-run to clone it."
-  mkdir -p "$(dirname "$CHECKOUT_FILE")" && echo "$ROOT" > "$CHECKOUT_FILE"
-fi
-
-step "Set up this Mac"
-if ask "Run just apply now (it shows the plan and asks before changing anything)"; then
-  args=(); (( YES )) && args+=(-y)
-  (cd "$ROOT" && just apply ${args[@]+"${args[@]}"})
-else
-  echo "  Later: cd \"$ROOT\" && just apply"
-fi
-
+echo "  To finish setting up this Mac, run:"
+echo
+printf '    %s\n' "${next[@]}"
+echo
+echo "  Cloning over SSH needs your SSH key on GitHub: gh auth login offers to make and add one."
+echo "  \`just apply\` shows what it would change and asks before changing anything."
 echo
 ok "Bootstrap done. Re-run any time; it only does what's missing."
