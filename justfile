@@ -9,6 +9,11 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 default:
     @if command -v fzf >/dev/null && [ -t 0 ]; then just --choose; else just --list --unsorted; fi
 
+# Set up / re-check this Mac (interactive)
+[group('mac')]
+bootstrap *args:
+    ./bootstrap.sh {{ args }}
+
 # Show what `apply` would change in your home folder (uses this checkout)
 [group('mac')]
 diff:
@@ -43,4 +48,4 @@ iterm-export profile="Default":
 # Lint shell scripts
 [group('checks')]
 lint:
-    shellcheck scripts/*
+    shellcheck bootstrap.sh scripts/*

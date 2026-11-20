@@ -9,6 +9,18 @@ One repo for setting up my Macs and managing my remote boxes.
 | iTerm2 | Dynamic Profile + `defaults` | `home/Library/Application Support/iTerm2/`, `home/run_onchange_after_20-iterm2.sh.tmpl` |
 | Old configs (irssi, screen, 2013 bootstrap…) | — | `archive/` (not deployed) |
 
+## New Mac
+
+```bash
+xcode-select --install
+git clone https://github.com/wwchen/dotfiles ~/code/wwchen/dotfiles
+~/code/wwchen/dotfiles/bootstrap.sh
+```
+
+`bootstrap.sh` asks before each step: Homebrew → chezmoi → (asks machine type + email) →
+shows the dotfile diff → applies, which installs the Brewfiles, oh-my-zsh and the iTerm2 profile.
+Re-running it is safe.
+
 ## Day to day
 
 ```bash
