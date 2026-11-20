@@ -94,51 +94,69 @@ brewfile_pending() {  # brewfile_pending FILE -> names of entries that need some
   # of those. Entries already on this Mac outside Homebrew (brewfile_present) aren't pending.
   # Returns 2 (with brew's output on stderr) if the check failed but named none of the
   # entries, e.g. a broken Brewfile.
-  local out type name found=0
+  local out type name key files="" found=0
+  local flagged=() casks=()
   out="$(brew bundle check --no-upgrade --verbose --file="$1" 2>&1)" && return 0
   while read -r type name; do
     grep -qF " $name needs to be " <<<"$out" || continue
     found=1
-    brewfile_present "$type" "$name" || echo "$name"
+    flagged+=("$type $name")
+    if [[ "$type" == cask ]]; then casks+=("$name"); fi
   done < <(sed -nE 's/^[[:space:]]*(tap|brew|cask|mas|npm) "([^"]+)".*/\1 \2/p' "$1" | awk '!seen[$0]++')
-  (( found )) && return 0
-  echo "$out" >&2
-  return 2
+  if (( ! found )); then
+    echo "$out" >&2
+    return 2
+  fi
+  # Look up every flagged cask in one brew call: each call spends a moment starting brew.
+  if (( ${#casks[@]} )); then files="$(brewfile_cask_files "${casks[@]}")"; fi
+  for key in "${flagged[@]}"; do
+    brewfile_present "${key%% *}" "${key#* }" "$files" || echo "${key#* }"
+  done
 }
 
-brewfile_present() {  # brewfile_present TYPE NAME -> 0 if the entry is on this Mac without Homebrew
+brewfile_present() {  # brewfile_present TYPE NAME [CASK_FILES] -> 0 if the entry is on this Mac without Homebrew
   # e.g. macOS's own /usr/bin/jq, or 1Password installed from its website. Formulae: a command
-  # of that name on PATH. Casks: what the cask would install (brewfile_cask_files) is all there.
-  # App Store apps: /Applications/NAME.app. Taps and npm packages: never.
-  local kind file found=0
+  # of that name on PATH. Casks: what the cask would install is all there (CASK_FILES, from
+  # brewfile_cask_files; looked up if not given). App Store apps: /Applications/NAME.app.
+  # Taps and npm packages: never.
+  local cask kind file list found=0
   case "$1" in
     brew) type -P "${2##*/}" >/dev/null ;;
     mas) [[ -d "/Applications/$2.app" ]] ;;
     cask)
-      while read -r kind file; do
-        [[ -n "$kind" ]] || continue
+      if (( $# >= 3 )); then list="$3"; else list="$(brewfile_cask_files "$2")"; fi
+      while read -r cask kind file; do
+        [[ "$cask" == "$2" && -n "$kind" ]] || continue
         found=1
         case "$kind" in
           app) [[ -d "/Applications/$file" || -d "$HOME/Applications/$file" ]] || return 1 ;;
           binary) type -P "$file" >/dev/null || return 1 ;;
           font) [[ -f "$HOME/Library/Fonts/$file" || -f "/Library/Fonts/$file" ]] || return 1 ;;
         esac
-      done < <(brewfile_cask_files "$2")
+      done <<<"$list"
       (( found )) ;;
     *) return 1 ;;
   esac
 }
 
-brewfile_cask_files() {  # brewfile_cask_files CASK -> "<app|binary|font> <file name>" per file it installs
-  # Only its main kind: its apps if it has any, else its commands, else its fonts (so a missing
-  # `code` command doesn't make a hand-installed VS Code pending). Nothing if brew doesn't know
-  # the cask. Parsed with JavaScript for Automation: every Mac has it; jq may not be there yet.
-  local json
-  json="$(brew info --cask --json=v2 "$1" 2>/dev/null)" || return 0
+brewfile_cask_files() {  # brewfile_cask_files CASK... -> "<cask> <app|binary|font> <file name>" per file it installs
+  # Only each cask's main kind: its apps if it has any, else its commands, else its fonts (so
+  # a missing `code` command doesn't make a hand-installed VS Code pending). Nothing for a cask
+  # brew doesn't know. Parsed with JavaScript for Automation: every Mac has it; jq may not be
+  # there yet.
+  local json c
+  if ! json="$(brew info --cask --json=v2 "$@" 2>/dev/null)"; then
+    # One unknown cask fails the whole call: look the others up one by one.
+    if (( $# > 1 )); then for c in "$@"; do brewfile_cask_files "$c"; done; fi
+    return 0
+  fi
   osascript -l JavaScript -e '
     function run(argv) {
-      var found = { app: [], binary: [], font: [] };
+      var asked = argv.slice(1), out = [];
       (JSON.parse(argv[0]).casks || []).forEach(function (c) {
+        var cask = asked.filter(function (n) { return n === c.token || n === c.full_token; })[0];
+        if (!cask) return;
+        var found = { app: [], binary: [], font: [] };
         (c.artifacts || []).forEach(function (a) {
           Object.keys(found).forEach(function (k) {
             if (!Array.isArray(a[k])) return;
@@ -148,12 +166,13 @@ brewfile_cask_files() {  # brewfile_cask_files CASK -> "<app|binary|font> <file 
             // Apps keep their folder under /Applications (e.g. "Adobe X/X.app"); others by name.
             var name = k === "app" && path.indexOf("/Applications/") === 0
               ? path.slice("/Applications/".length) : path.split("/").pop();
-            found[k].push(k + " " + name);
+            found[k].push(cask + " " + k + " " + name);
           });
         });
+        out = out.concat(found.app.length ? found.app : found.binary.length ? found.binary : found.font);
       });
-      return (found.app.length ? found.app : found.binary.length ? found.binary : found.font).join("\n");
-    }' "$json" 2>/dev/null
+      return out.join("\n");
+    }' "$json" "$@" 2>/dev/null
 }
 
 brewfile_select() {  # brewfile_select FILE NAMES_FILE -> FILE's entry lines (options kept) for those names
@@ -227,8 +246,11 @@ if [[ -z "$brewfile" || ! -f "$brewfile" ]]; then
   warn "no brew/Brewfile.core on $REF; skipping core apps"
 else
   status=0
-  brewfile_pending "$brewfile" > "$tmp/pending" 2> "$tmp/check-error" || status=$?
   echo "  brew/Brewfile.core   (${green}✓${reset} done, ${yellow}+${reset} to install/update)"
+  # brew takes a few seconds to check; say so, then clear the line once it's done.
+  if [[ -t 1 ]]; then printf '    checking what is installed...'; fi
+  brewfile_pending "$brewfile" > "$tmp/pending" 2> "$tmp/check-error" || status=$?
+  if [[ -t 1 ]]; then printf '\r\033[K'; fi
   brewfile_show "$brewfile" "$tmp/pending"
   n_pending=$(wc -l < "$tmp/pending" | tr -d ' ')
   if (( status != 0 )); then
