@@ -6,25 +6,23 @@ One repo for setting up my Macs and managing my remote boxes.
 |---|---|---|
 | Old configs (irssi, screen, 2013 bootstrap…) | — | `archive/` (not deployed) |
 
-## New Mac
+## Getting started
+
+On a new Mac, run these one at a time:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wwchen/dotfiles/master/bootstrap.sh | bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# What the rest of setup needs
+brew install chezmoi just gh
+
+# Log in to GitHub, then clone
+gh auth login
+gh repo clone wwchen/dotfiles ~/code/wwchen/dotfiles
+
+# Set up this Mac
+cd ~/code/wwchen/dotfiles && just apply
 ```
-
-`bootstrap.sh` only does what's missing, so it's safe to re-run:
-
-1. **Prerequisites:** Command Line Tools, Homebrew.
-2. **Core apps:** `brew/Brewfile.core` (CLI basics, 1Password, iTerm2), read from GitHub (no clone yet),
-   listed first. The other groups install on `just apply`.
-3. **Next steps:** prints the commands to finish, leaving out what's already done. It runs
-   none of them:
-
-   ```bash
-   gh auth login -h github.com -p ssh -w   # offers to make and add an SSH key to GitHub
-   gh repo clone wwchen/dotfiles ~/code/wwchen/dotfiles   # over SSH; or clone anywhere
-   cd ~/code/wwchen/dotfiles && just apply
-   ```
 
 `just apply` shows what it would change and asks before doing anything. The first run asks
 machine type and email, once.
