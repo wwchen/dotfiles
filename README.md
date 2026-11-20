@@ -6,7 +6,7 @@ One repo for setting up my Macs and managing my remote boxes.
 |---|---|---|
 | Dotfiles (zsh, git, starship) | [chezmoi](https://chezmoi.io) | `home/` |
 | Mac apps & CLIs | Homebrew Bundle (+ `mas`) | `brew/Brewfile.core`, `.apps`, opt-in `.dev`, `.personal` / `.work` |
-| iTerm2 | Dynamic Profile + `defaults` | `home/Library/Application Support/iTerm2/`, `home/run_onchange_after_20-iterm2.sh.tmpl` |
+| iTerm2 | Dynamic Profile + `defaults` | `home/Library/Application Support/iTerm2/`, `home/run_after_20-iterm2.sh.tmpl` |
 | Old configs (irssi, screen, 2013 bootstrap…) | — | `archive/` (not deployed) |
 
 ## Getting started

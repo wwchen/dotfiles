@@ -10,7 +10,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/home/Library/Application Support/iTerm2/DynamicProfiles/wc.json"
-GUID="B5E1D3A0-7C7E-4B8E-9D55-5C1F0E6A2E01"   # must match run_onchange_after_20-iterm2.sh.tmpl
+GUID="B5E1D3A0-7C7E-4B8E-9D55-5C1F0E6A2E01"   # must match home/run_after_20-iterm2.sh.tmpl
 want="${1:-Default}"
 
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT

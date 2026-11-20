@@ -1,0 +1,41 @@
+#!/bin/bash
+# iTerm2 app-level settings. The profile itself is the Dynamic Profile in
+# ~/Library/Application Support/iTerm2/DynamicProfiles/wc.json (also managed by chezmoi).
+# Runs on every apply but only writes settings that differ, and never fails the apply.
+set -uo pipefail
+{{ if ne .chezmoi.os "darwin" -}}
+exit 0
+{{- end }}
+
+DOMAIN=com.googlecode.iterm2
+GUID="B5E1D3A0-7C7E-4B8E-9D55-5C1F0E6A2E01"   # the 'wc' profile; scripts/iterm-export uses it too
+
+# key|type|wanted value|what it means
+settings=(
+  "Default Bookmark Guid|-string|$GUID|make the 'wc' profile the default"
+  "DimInactiveSplitPanes|-bool|0|don't dim inactive split panes"
+  "ClickToSelectCommand|-bool|0|clicking a command doesn't select it"
+)
+
+changes=()
+for s in "${settings[@]}"; do
+  IFS='|' read -r key type want what <<<"$s"
+  [[ "$(defaults read "$DOMAIN" "$key" 2>/dev/null)" == "$want" ]] || changes+=("$s")
+done
+(( ${#changes[@]} )) || exit 0
+
+if [[ -n "${DOTFILES_PLAN:-}" ]]; then
+  for s in "${changes[@]}"; do IFS='|' read -r _ _ _ what <<<"$s"; echo "iTerm2: $what"; done
+  exit 0
+fi
+
+for s in "${changes[@]}"; do
+  IFS='|' read -r key type want what <<<"$s"
+  [[ "$type" == -bool ]] && { [[ "$want" == 1 ]] && want=true || want=false; }
+  defaults write "$DOMAIN" "$key" "$type" "$want" && echo "iTerm2: $what" \
+    || echo "iTerm2: couldn't set $key; will retry on the next apply" >&2
+done
+if pgrep -xq iTerm2; then
+  echo "iTerm2 is running: quit and reopen it to pick up app-level settings."
+fi
+exit 0
