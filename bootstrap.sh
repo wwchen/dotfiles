@@ -2,7 +2,8 @@
 # Bootstrap a fresh Mac. Every step checks first, so re-running only does what's still missing.
 #
 #   1. Prerequisites  Xcode Command Line Tools, Homebrew
-#   2. Core apps      brew/Brewfile.core: every entry listed with ✓/+, then one question if any are pending
+#   2. Core apps      brew/Brewfile.core: every entry listed with ✓/+, then a checklist of the pending
+#                     ones to install (space ticks, enter goes)
 #   3. Next steps     prints the commands to finish (gh login, clone this repo, `just apply`),
 #                     leaving out what's already done. Bootstrap runs none of them.
 #
@@ -50,6 +51,54 @@ ask() {  # ask "question" -> 0 for yes (default), 1 for no; Ctrl-D cancels
       n|N) echo "  skipped"; return 1 ;;
     esac
   done
+}
+
+choose() {  # choose QUESTION IN OUT -> a checklist of IN's lines, all ticked; the ticked ones go to OUT
+  # ↑/↓ (or k/j) move, space ticks, a ticks all or none, enter goes, Ctrl-D cancels. Returns 1
+  # if none are ticked. With -y everything is chosen; without a terminal to draw in, one [Y/n]
+  # for all.
+  local items=() on=() line i n cur=0 key rest mark ptr
+  while IFS= read -r line; do items+=("$line"); on+=(1); done < "$2"
+  n=${#items[@]}
+  : > "$3"
+  if (( YES )); then cp "$2" "$3"; return 0; fi
+  need_tty "Answering questions"
+  if [[ ! -t 1 ]]; then
+    if ask "$1 (all $n)"; then cp "$2" "$3"; return 0; fi
+    return 1
+  fi
+  echo "${yellow}$1${reset}  ↑/↓ move · space tick · a all/none · enter go"
+  printf '\e[?25l'  # hide the cursor while drawing; the EXIT trap shows it again
+  while true; do
+    for (( i = 0; i < n; i++ )); do
+      mark="[ ]"; ptr=" "
+      if (( on[i] )); then mark="[${green}x${reset}]"; fi
+      if (( i == cur )); then ptr="${bold}>${reset}"; fi
+      printf '\r\e[K  %s %s %s\n' "$ptr" "$mark" "${items[i]}"
+    done
+    IFS= read -rsn1 key </dev/tty || { printf '\e[?25h'; cancelled; }
+    if [[ "$key" == $'\e' ]]; then  # arrow keys: ESC [ A, or ESC O A
+      IFS= read -rsn2 -t 1 rest </dev/tty || rest=""
+      key+="$rest"
+    fi
+    case "$key" in
+      $'\e[A' | $'\eOA' | k) if (( cur > 0 )); then cur=$((cur - 1)); fi ;;
+      $'\e[B' | $'\eOB' | j) if (( cur < n - 1 )); then cur=$((cur + 1)); fi ;;
+      " ") on[cur]=$((1 - on[cur])) ;;
+      a | A)
+        rest=0  # tick all, unless all are ticked: then none
+        for (( i = 0; i < n; i++ )); do if (( ! on[i] )); then rest=1; fi; done
+        for (( i = 0; i < n; i++ )); do on[i]=$rest; done ;;
+      "") break ;;
+      $'\004') printf '\e[?25h'; cancelled ;;  # Ctrl-D: a key like any other while reading keys
+    esac
+    printf '\e[%dA' "$n"  # back up to redraw the list in place
+  done
+  printf '\e[?25h'
+  for (( i = 0; i < n; i++ )); do
+    if (( on[i] )); then echo "${items[i]}" >> "$3"; fi
+  done
+  [[ -s "$3" ]]
 }
 
 # Brewfile helpers. Kept in this file on purpose: bootstrap runs before the repo is cloned, so
@@ -174,7 +223,9 @@ ROOT=""
 if [[ -n "$SELF" && -f "$SELF" && -f "$(dirname "$SELF")/.chezmoiroot" ]]; then
   ROOT="$(cd "$(dirname "$SELF")" && pwd)"
 fi
-tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+tmp="$(mktemp -d)"
+# Clean up, and show the cursor again if the checklist (choose) was interrupted while hiding it.
+trap 'rm -rf "$tmp"; if [[ -t 1 ]]; then printf "\e[?25h"; fi' EXIT
 # Ctrl-C stops everything. Without this, a tool that catches Ctrl-C itself (brew does) just
 # exits with an error, and the script would carry on to the next step.
 trap 'echo; echo "${red}✗ Interrupted.${reset} Re-run any time; it picks up where it left off." >&2; exit 130' INT
@@ -230,19 +281,24 @@ else
   elif (( n_pending == 0 )); then
     ok "all installed"
   fi
-  if (( status != 0 || n_pending > 0 )); then
-    what="the $n_pending pending ($(paste -sd ',' "$tmp/pending" | sed 's/,/, /g'))"
-    # Only the pending entries: the rest are installed, some of them without Homebrew, and
-    # brew would install those again (or fail to --adopt an app that isn't the same version).
-    brewfile_select "$brewfile" "$tmp/pending" > "$tmp/Brewfile.pending"
-    install_from="$tmp/Brewfile.pending"
-    if (( status != 0 )); then what="brew bundle anyway"; install_from="$brewfile"; fi
-    if ask "Install $what"; then
-      if HOMEBREW_CASK_OPTS="--adopt" from_tty brew bundle install --no-upgrade --file="$install_from"; then
-        ok "core apps installed"
-      else
-        warn "some failed; re-run to retry just those"
-      fi
+  # Only what's chosen: the rest are installed, some of them without Homebrew, and brew would
+  # install those again (or fail to --adopt an app that isn't the same version).
+  install_from=""
+  if (( status != 0 )); then
+    if ask "Install brew bundle anyway"; then install_from="$brewfile"; fi
+  elif (( n_pending > 0 )); then
+    if choose "Install which of the $n_pending pending?" "$tmp/pending" "$tmp/chosen"; then
+      brewfile_select "$brewfile" "$tmp/chosen" > "$tmp/Brewfile.chosen"
+      install_from="$tmp/Brewfile.chosen"
+    else
+      echo "  skipped"
+    fi
+  fi
+  if [[ -n "$install_from" ]]; then
+    if HOMEBREW_CASK_OPTS="--adopt" from_tty brew bundle install --no-upgrade --file="$install_from"; then
+      ok "core apps installed"
+    else
+      warn "some failed; re-run to retry just those"
     fi
   fi
 fi

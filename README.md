@@ -16,7 +16,8 @@ curl -fsSL https://raw.githubusercontent.com/wwchen/dotfiles/master/bootstrap.sh
 
 1. **Prerequisites:** Command Line Tools, Homebrew.
 2. **Core apps:** `brew/Brewfile.core` (CLI basics, 1Password, iTerm2), read from GitHub (no clone yet),
-   listed first. The other groups install on `just apply`.
+   listed first. Then a checklist of what's not installed yet, all ticked: space unticks, enter
+   installs the rest. The other groups install on `just apply`.
 3. **Next steps:** prints the commands to finish, leaving out what's already done. It runs
    none of them:
 
