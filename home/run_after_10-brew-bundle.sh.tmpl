@@ -1,0 +1,43 @@
+#!/bin/bash
+# Runs on every `chezmoi apply`: a quick `brew bundle check` per Brewfile, and installs
+# only when something is missing (so a skipped or failed install is offered again).
+# Never fails the apply: one bad entry (e.g. App Store not signed in) must not stop
+# the iTerm2/starship scripts that run after this one.
+{{- $root := .chezmoi.workingTree }}
+set -uo pipefail
+
+{{ if ne .chezmoi.os "darwin" -}}
+exit 0
+{{- end }}
+
+eval "$(/opt/homebrew/bin/brew shellenv bash)"
+BREW_DIR={{ joinPath $root "brew" | quote }}
+files=("$BREW_DIR/Brewfile" "$BREW_DIR/Brewfile.{{ .machine }}")
+
+# Adopt apps that were installed by hand (e.g. from a .dmg) instead of failing.
+export HOMEBREW_CASK_OPTS="--adopt"
+
+# Ask only when someone can answer: a terminal is available and bootstrap.sh -y wasn't used.
+can_ask() { [[ -z "${BOOTSTRAP_YES:-}" ]] && { : </dev/tty; } 2>/dev/null; }
+
+failed=0
+for f in "${files[@]}"; do
+  [[ -f "$f" ]] || continue
+  if brew bundle check --no-upgrade --file="$f" >/dev/null 2>&1; then
+    echo "brew: $(basename "$f") satisfied"
+    continue
+  fi
+  echo "brew: $(basename "$f") has missing entries:"
+  brew bundle check --no-upgrade --verbose --file="$f" | sed 's/^/  /'
+  if can_ask; then
+    read -r -p "Install them now? [Y/n] " ans </dev/tty || ans=n
+    [[ "$ans" =~ ^[Nn] ]] && { echo "skipped (offered again on the next apply)"; continue; }
+  fi
+  brew bundle install --no-upgrade --file="$f" || failed=1
+done
+
+if (( failed )); then
+  echo "brew: some entries failed to install. App Store ('mas') apps need you signed in to the"
+  echo "      App Store app. Fix that, then 'just apply' retries only what's missing."
+fi
+exit 0

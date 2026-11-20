@@ -14,7 +14,7 @@ default:
 diff:
     chezmoi --source {{ justfile_directory() }} diff
 
-# Apply dotfiles; also runs brew bundle / iTerm2 scripts when their inputs changed
+# Apply dotfiles; installs anything missing from the Brewfiles
 [group('mac')]
 apply:
     chezmoi --source {{ justfile_directory() }} apply -v
