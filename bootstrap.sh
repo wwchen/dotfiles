@@ -5,7 +5,8 @@
 #   1. Prerequisites  Xcode Command Line Tools, Homebrew
 #   2. Core apps      brew/Brewfile.core: every entry listed with ✓/+, then one question if any are pending
 #   3. Setup          SSH key and GitHub checks (gh login; key creation and upload are shown
-#                     as commands for you to run) → clone this repo over SSH
+#                     as commands for you to run) → gh repo clone this repo (SSH once your key
+#                     is on GitHub, HTTPS until then)
 #                     → offer `just apply` (it shows its plan and asks before changing anything)
 #
 # Fresh Mac:
@@ -17,14 +18,14 @@
 #
 # Overrides: DOTFILES_DIR  exact clone path (skips the code-root question)
 #            DOTFILES_REF  branch the core Brewfile is read from without a checkout (master)
-#            DOTFILES_REPO what to clone (git@github.com:wwchen/dotfiles.git)
+#            DOTFILES_REPO what to clone: owner/name or a URL, for gh repo clone (wwchen/dotfiles)
 set -euo pipefail
 
 YES=0
 [[ "${1:-}" == "-y" || "${1:-}" == "--yes" ]] && YES=1
 GH_REPO="wwchen/dotfiles"
 REF="${DOTFILES_REF:-master}"
-REPO_URL="${DOTFILES_REPO:-git@github.com:$GH_REPO.git}"
+REPO="${DOTFILES_REPO:-$GH_REPO}"
 KEY="$HOME/.ssh/id_ed25519"
 # Where the clone went, so re-runs reuse it instead of asking (and cloning) again.
 CHECKOUT_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/checkout"
@@ -361,6 +362,15 @@ else
   todo "gh ssh-key add $(q "$KEY.pub") --title $(q "$(scutil --get ComputerName 2>/dev/null || hostname -s)")"
 fi
 
+pin_github_host_keys() {  # GitHub's published host keys (over HTTPS) in known_hosts, if missing
+  # Instead of trusting whatever answers the first SSH connection.
+  ssh-keygen -F github.com >/dev/null 2>&1 && return 0
+  mkdir -p "$HOME/.ssh"
+  gh api meta --jq '.ssh_keys[] | "github.com " + .' >> "$HOME/.ssh/known_hosts" \
+    || die "Couldn't fetch GitHub's SSH host keys."
+  ok "added GitHub's SSH host keys to ~/.ssh/known_hosts"
+}
+
 show_todo() {  # what's left for you to run, then re-run bootstrap
   (( ${#TODO[@]} )) || return 0
   echo
@@ -385,23 +395,28 @@ else
     ok "at $ROOT"
   elif [[ -e "$ROOT" && -n "$(ls -A "$ROOT" 2>/dev/null)" ]]; then
     die "$ROOT exists but isn't this repo; set DOTFILES_DIR to clone somewhere else."
-  elif (( ! ssh_ok )); then
-    warn "cloning $REPO_URL needs your SSH key on GitHub; stopping here"
-    show_todo
-    exit 0
-  elif ask "Clone $REPO_URL to $ROOT"; then
-    if ! ssh-keygen -F github.com >/dev/null 2>&1; then
-      # Pin GitHub's published host keys (fetched over HTTPS) instead of trusting whatever
-      # answers the first SSH connection.
-      mkdir -p "$HOME/.ssh"
-      gh api meta --jq '.ssh_keys[] | "github.com " + .' >> "$HOME/.ssh/known_hosts" \
-        || die "Couldn't fetch GitHub's SSH host keys."
-      ok "added GitHub's SSH host keys to ~/.ssh/known_hosts"
+  elif ask "Clone $REPO to $ROOT"; then
+    # gh clones over its git_protocol (ssh after `gh auth login -p ssh`). Until a key of yours
+    # is on GitHub, an https URL makes it clone over HTTPS with your gh login instead.
+    clone_from="$REPO"
+    if (( ssh_ok )); then
+      pin_github_host_keys
+    elif [[ "$REPO" != *:* ]]; then
+      clone_from="https://github.com/$REPO"
     fi
     mkdir -p "$(dirname "$ROOT")"
-    git clone "$REPO_URL" "$ROOT"
+    gh repo clone "$clone_from" "$ROOT"
   fi
   [[ -f "$ROOT/.chezmoiroot" ]] || die "The repo isn't at $ROOT; re-run to clone it."
+  # Cloned over HTTPS before your key was on GitHub? Once it is, and gh prefers SSH, switch.
+  origin="$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)"
+  if (( ssh_ok )) && [[ "$origin" == https://github.com/* ]] \
+    && [[ "$(gh config get git_protocol -h github.com 2>/dev/null)" == ssh ]]; then
+    pin_github_host_keys
+    ssh_origin="git@github.com:${origin#https://github.com/}"
+    warn "$ROOT uses HTTPS; your SSH key is on GitHub now. To switch it to SSH:"
+    todo "git -C $(q "$ROOT") remote set-url origin $(q "${ssh_origin%.git}.git")"
+  fi
   mkdir -p "$(dirname "$CHECKOUT_FILE")" && echo "$ROOT" > "$CHECKOUT_FILE"
 fi
 
