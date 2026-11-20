@@ -71,6 +71,27 @@ abspath() {  # ~ and ~/x expand to the home folder; other relative paths are und
   echo "$p"
 }
 
+brewfile_entries() {  # brewfile_entries FILE -> each entry's name, one per line
+  sed -nE 's/^[[:space:]]*(brew|cask|mas|tap|npm) "([^"]+)".*/\2/p' "$1"
+}
+
+brewfile_missing() {  # brewfile_missing FILE -> names of entries that aren't installed, one per line
+  # brew bundle reports these on stderr, as "→ <Type> <name> needs to be installed[ or updated]."
+  brew bundle check --no-upgrade --verbose --file="$1" 2>&1 \
+    | sed -nE 's/^→ [A-Za-z]+ (.+) needs to be installed.*/\1/p' || true
+}
+
+brewfile_show() {  # brewfile_show FILE MISSING_LIST -> every entry in 3 columns, ✓ installed / + missing
+  local name mark col=0
+  while IFS= read -r name; do
+    if grep -qxF "$name" "$2"; then mark="${yellow}+${reset}"; else mark="${green}✓${reset}"; fi
+    (( col == 0 )) && printf '   '
+    printf ' %s %-24s' "$mark" "$name"
+    col=$(( (col + 1) % 3 )); (( col == 0 )) && echo
+  done < <(brewfile_entries "$1")
+  (( col == 0 )) || echo
+}
+
 [[ "$(uname -s)" == "Darwin" ]] || die "bootstrap.sh is for macOS."
 
 # Running from a checkout (./bootstrap.sh) or piped from curl (no checkout yet)?
@@ -120,19 +141,9 @@ fi
 if [[ -z "$brewfile" || ! -f "$brewfile" ]]; then
   warn "no brew/Brewfile.core on $REF; skipping core apps"
 else
-  # Every entry in the Brewfile, and which of them brew says are missing (it prints those on stderr).
-  sed -nE 's/^[[:space:]]*(brew|cask|mas|tap|npm) "([^"]+)".*/\2/p' "$brewfile" > "$tmp/entries"
-  brew bundle check --no-upgrade --verbose --file="$brewfile" 2>&1 \
-    | sed -nE 's/^→ [A-Za-z]+ (.+) needs to be installed.*/\1/p' > "$tmp/missing" || true
+  brewfile_missing "$brewfile" > "$tmp/missing"
   echo "  brew/Brewfile.core   (${green}✓${reset} installed, ${yellow}+${reset} to install)"
-  col=0
-  while IFS= read -r name; do
-    if grep -qxF "$name" "$tmp/missing"; then mark="${yellow}+${reset}"; else mark="${green}✓${reset}"; fi
-    (( col == 0 )) && printf '   '
-    printf ' %s %-24s' "$mark" "$name"
-    col=$(( (col + 1) % 3 )); (( col == 0 )) && echo
-  done < "$tmp/entries"
-  (( col == 0 )) || echo
+  brewfile_show "$brewfile" "$tmp/missing"
   n_missing=$(wc -l < "$tmp/missing" | tr -d ' ')
   if (( n_missing == 0 )); then
     ok "all installed"
