@@ -3,7 +3,7 @@
 # checks first, so re-running only does what's still missing.
 #
 #   1. Prerequisites  Xcode Command Line Tools, Homebrew
-#   2. Core apps      everything in brew/Brewfile.core (listed, then installed after one yes)
+#   2. Core apps      brew/Brewfile.core: every entry listed with ✓/+, then one question if any are missing
 #   3. Setup          SSH key → GitHub (gh login, key added) → clone this repo over SSH
 #                     → offer `just apply` (it shows its plan and asks before changing anything)
 #
@@ -108,30 +108,36 @@ esac
 
 # ════════════════════════════════════════════════════════════════════════════════════════
 phase "2/3 Core apps"
-if ask "Continue to core apps (brew/Brewfile.core)"; then
-  if [[ -n "$ROOT" ]]; then
-    brewfile="$ROOT/brew/Brewfile.core"
-  else
-    brewfile="$tmp/Brewfile"
-    curl -fsSL "https://raw.githubusercontent.com/$GH_REPO/$REF/brew/Brewfile.core" -o "$brewfile" 2>/dev/null || brewfile=""
-  fi
-  if [[ -z "$brewfile" || ! -f "$brewfile" ]]; then
-    warn "no brew/Brewfile.core (yet) on $REF; skipping core apps"
-  else
-    # brew bundle prints what's missing on stderr.
-    missing="$(brew bundle check --no-upgrade --verbose --file="$brewfile" 2>&1 \
-      | sed -nE 's/^→ [A-Za-z]+ (.+) needs to be installed.*/\1/p' | paste -sd ',' - | sed 's/,/, /g' || true)"
-    if [[ -z "$missing" ]]; then
-      ok "all installed"
+if [[ -n "$ROOT" ]]; then
+  brewfile="$ROOT/brew/Brewfile.core"
+else
+  brewfile="$tmp/Brewfile.core"
+  curl -fsSL "https://raw.githubusercontent.com/$GH_REPO/$REF/brew/Brewfile.core" -o "$brewfile" 2>/dev/null || brewfile=""
+fi
+if [[ -z "$brewfile" || ! -f "$brewfile" ]]; then
+  warn "no brew/Brewfile.core on $REF; skipping core apps"
+else
+  # Every entry in the Brewfile, and which of them brew says are missing (it prints those on stderr).
+  sed -nE 's/^[[:space:]]*(brew|cask|mas|tap|npm) "([^"]+)".*/\2/p' "$brewfile" > "$tmp/entries"
+  brew bundle check --no-upgrade --verbose --file="$brewfile" 2>&1 \
+    | sed -nE 's/^→ [A-Za-z]+ (.+) needs to be installed.*/\1/p' > "$tmp/missing" || true
+  echo "  brew/Brewfile.core   (${green}✓${reset} installed, ${yellow}+${reset} to install)"
+  col=0
+  while IFS= read -r name; do
+    if grep -qxF "$name" "$tmp/missing"; then mark="${yellow}+${reset}"; else mark="${green}✓${reset}"; fi
+    (( col == 0 )) && printf '   '
+    printf ' %s %-24s' "$mark" "$name"
+    col=$(( (col + 1) % 3 )); (( col == 0 )) && echo
+  done < "$tmp/entries"
+  (( col == 0 )) || echo
+  n_missing=$(wc -l < "$tmp/missing" | tr -d ' ')
+  if (( n_missing == 0 )); then
+    ok "all installed"
+  elif ask "Install the $n_missing missing ($(paste -sd ',' "$tmp/missing" | sed 's/,/, /g'))"; then
+    if HOMEBREW_CASK_OPTS="--adopt" brew bundle install --no-upgrade --file="$brewfile" </dev/tty; then
+      ok "core apps installed"
     else
-      echo "  To install: $missing"
-      if ask "Install these"; then
-        if HOMEBREW_CASK_OPTS="--adopt" brew bundle install --no-upgrade --file="$brewfile" </dev/tty; then
-          ok "core apps installed"
-        else
-          warn "some failed (App Store apps need you signed in to the App Store); re-run to retry just those"
-        fi
-      fi
+      warn "some failed; re-run to retry just those"
     fi
   fi
 fi
