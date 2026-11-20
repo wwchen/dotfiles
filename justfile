@@ -12,21 +12,22 @@ default:
 # Show what `apply` would change in your home folder (uses this checkout)
 [group('mac')]
 diff: _init
-    chezmoi --source {{ justfile_directory() }} diff
+    chezmoi --source "{{ justfile_directory() }}" diff
 
 # Show what applying this repo would change, ask, then apply (-y: don't ask)
 [group('mac')]
 apply *args: _init
     @scripts/apply {{ args }}
 
-# First diff/apply on this Mac: chezmoi asks its questions (machine type, email, ...) once
+# Before every diff/apply: regenerate chezmoi's config from home/.chezmoi.toml.tmpl. Questions
+# are only asked for answers this Mac doesn't have yet: the first run, or one added since.
 [private]
 _init:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/chezmoi/chezmoi.toml" ]]; then
-      echo "First run on this Mac: a few questions, saved in ~/.config/chezmoi/chezmoi.toml."
-      chezmoi init --source {{ justfile_directory() }}
+    if ! chezmoi init --source "{{ justfile_directory() }}"; then
+      echo "chezmoi init failed. If it had questions to ask, run this in a terminal." >&2
+      exit 1
     fi
 
 # Lint shell scripts
