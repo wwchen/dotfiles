@@ -9,7 +9,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 default:
     @if command -v fzf >/dev/null && [ -t 0 ]; then just --choose; else just --list --unsorted; fi
 
-# Bootstrap: prerequisites → core apps → setup (SSH key, GitHub, clone); asks at each phase
+# Bootstrap: prerequisites → core apps → setup (GitHub login, clone); asks at each phase
 [group('mac')]
 bootstrap *args:
     ./bootstrap.sh {{ args }}
