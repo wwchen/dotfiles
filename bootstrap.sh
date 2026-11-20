@@ -1,31 +1,24 @@
 #!/bin/bash
-# Bootstrap a fresh Mac in three phases. Each phase asks before it starts, and every step
-# checks first, so re-running only does what's still missing.
+# Bootstrap a fresh Mac. Every step checks first, so re-running only does what's still missing.
 #
 #   1. Prerequisites  Xcode Command Line Tools, Homebrew
 #   2. Core apps      brew/Brewfile.core: every entry listed with ✓/+, then one question if any are pending
-#   3. Setup          GitHub login (gh) → gh repo clone this repo
-#                     → offer `just apply` (it shows its plan and asks before changing anything)
+#   3. Next steps     prints the commands to finish (gh login, clone this repo, `just apply`),
+#                     leaving out what's already done. Bootstrap runs none of them.
 #
 # Fresh Mac:
 #   curl -fsSL https://raw.githubusercontent.com/wwchen/dotfiles/master/bootstrap.sh | bash
 # From a checkout (uses it; no clone):
 #   ./bootstrap.sh       ask at each step
-#   ./bootstrap.sh -y    don't ask   (piped: ... | bash -s -- -y). Steps that are interactive by
-#                        nature (GitHub login) still need a terminal.
+#   ./bootstrap.sh -y    don't ask   (piped: ... | bash -s -- -y)
 #
-# Overrides: DOTFILES_DIR  exact clone path (skips the code-root question)
-#            DOTFILES_REF  branch the core Brewfile is read from without a checkout (master)
-#            DOTFILES_REPO what to clone: owner/name (over HTTPS) or a URL (wwchen/dotfiles)
+# Override: DOTFILES_REF  branch the core Brewfile is read from without a checkout (master)
 set -euo pipefail
 
 YES=0
 [[ "${1:-}" == "-y" || "${1:-}" == "--yes" ]] && YES=1
 GH_REPO="wwchen/dotfiles"
 REF="${DOTFILES_REF:-master}"
-REPO="${DOTFILES_REPO:-$GH_REPO}"
-# Where the clone went, so re-runs reuse it instead of asking (and cloning) again.
-CHECKOUT_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/checkout"
 
 bold=$'\e[1m'; blue=$'\e[34m'; yellow=$'\e[33m'; green=$'\e[32m'; red=$'\e[31m'; reset=$'\e[0m'
 phase() { echo; echo "${bold}${blue}━━ $* ━━${reset}"; }
@@ -57,28 +50,6 @@ ask() {  # ask "question" -> 0 for yes (default), 1 for no; Ctrl-D cancels
       n|N) echo "  skipped"; return 1 ;;
     esac
   done
-}
-
-ask_value() {  # ask_value "question" default -> prints the answer (default with -y or Enter)
-  local ans=""
-  if (( ! YES )); then
-    need_tty "Answering questions"
-    read -r -p "${yellow}$1${reset} [$2] " ans </dev/tty || cancelled
-  fi
-  echo "${ans:-$2}"
-}
-
-abspath() {  # ~ and ~/x expand to the home folder; other relative paths are under it too
-  local p="${1%/}"
-  # shellcheck disable=SC2088  # matching a literal ~ typed by the user
-  case "$p" in
-    "") p="$HOME" ;;
-    "~") p="$HOME" ;;
-    "~/"*) p="$HOME/${p#\~/}" ;;
-    /*) ;;
-    *) p="$HOME/$p" ;;
-  esac
-  echo "$p"
 }
 
 # Brewfile helpers. Kept in this file on purpose: bootstrap runs before the repo is cloned, so
@@ -277,68 +248,31 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════════════════════
-phase "3/3 Setup"
-if ! ask "Continue to setup (GitHub login, clone this repo)"; then
-  echo; ok "Stopped before setup. Re-run any time to continue."
-  exit 0
+phase "3/3 Next steps"
+# Bootstrap stops here: the rest is printed for you to run, minus what's already done.
+next=()
+missing=()
+for t in gh chezmoi just; do command -v "$t" >/dev/null || missing+=("$t"); done
+if (( ${#missing[@]} )); then next+=("brew install ${missing[*]}"); fi
+if ! { command -v gh >/dev/null && gh auth status -h github.com >/dev/null 2>&1; }; then
+  next+=("gh auth login -h github.com -p https -w")
 fi
-
-step "Tools for setup (gh, chezmoi, just)"
-want=()
-for t in gh chezmoi just; do command -v "$t" >/dev/null || want+=("$t"); done
-if (( ${#want[@]} == 0 )); then
-  ok "installed"
-elif ask "Install ${want[*]}"; then
-  brew install "${want[@]}"
+# This checkout if bootstrap runs from one, else ~/code/wwchen/dotfiles (clone it anywhere).
+dir="${ROOT:-$HOME/code/$GH_REPO}"
+shown="$(printf '%q' "$dir")"
+if [[ "$dir" == "$HOME/"* ]]; then
+  # shellcheck disable=SC2088  # a literal ~ for you to paste; your shell expands it
+  shown="~/$(printf '%q' "${dir#"$HOME/"}")"
 fi
-for t in gh chezmoi just; do command -v "$t" >/dev/null || die "$t is required for setup."; done
-
-step "GitHub login"
-if gh auth status -h github.com >/dev/null 2>&1; then
-  :
-elif ask "Log in to GitHub with gh (opens a browser)"; then
-  need_tty "Logging in to GitHub"
-  gh auth login -h github.com -p https -w </dev/tty
+if [[ ! -f "$dir/.chezmoiroot" ]]; then
+  next+=("gh repo clone https://github.com/$GH_REPO $shown")
 fi
-gh auth status -h github.com >/dev/null 2>&1 || die "Setup needs a GitHub login to clone this repo."
-login="$(gh api user --jq .login 2>/dev/null || echo '?')"
-ok "logged in as $login"
+next+=("cd $shown && just apply")
 
-step "dotfiles repo"
-if [[ -n "$ROOT" ]]; then
-  ok "using this checkout: $ROOT"
-else
-  remembered="$(cat "$CHECKOUT_FILE" 2>/dev/null || true)"
-  if [[ -n "${DOTFILES_DIR:-}" ]]; then
-    ROOT="$(abspath "$DOTFILES_DIR")"
-  elif [[ -n "$remembered" && -f "$remembered/.chezmoiroot" ]]; then
-    ROOT="$remembered"
-  else
-    # shellcheck disable=SC2088  # shown to the user as-is, expanded by abspath
-    ROOT="$(abspath "$(ask_value "Root folder for your code checkouts" "~/code")")/wwchen/dotfiles"
-  fi
-  if [[ -f "$ROOT/.chezmoiroot" ]]; then
-    ok "at $ROOT"
-  elif [[ -e "$ROOT" && -n "$(ls -A "$ROOT" 2>/dev/null)" ]]; then
-    die "$ROOT exists but isn't this repo; set DOTFILES_DIR to clone somewhere else."
-  elif ask "Clone $REPO to $ROOT"; then
-    # Over HTTPS with your gh login, whatever protocol gh is set to.
-    clone_from="$REPO"
-    [[ "$REPO" == *:* ]] || clone_from="https://github.com/$REPO"
-    mkdir -p "$(dirname "$ROOT")"
-    gh repo clone "$clone_from" "$ROOT" || die "Couldn't clone $REPO; re-run to retry."
-  fi
-  [[ -f "$ROOT/.chezmoiroot" ]] || die "The repo isn't at $ROOT; re-run to clone it."
-  mkdir -p "$(dirname "$CHECKOUT_FILE")" && echo "$ROOT" > "$CHECKOUT_FILE"
-fi
-
-step "Set up this Mac"
-if ask "Run just apply now (it shows the plan and asks before changing anything)"; then
-  args=(); (( YES )) && args+=(-y)
-  (cd "$ROOT" && just apply ${args[@]+"${args[@]}"})
-else
-  echo "  Later: cd \"$ROOT\" && just apply"
-fi
-
+echo "  To finish setting up this Mac, run:"
+echo
+printf '    %s\n' "${next[@]}"
+echo
+echo "  \`just apply\` shows what it would change and asks before changing anything."
 echo
 ok "Bootstrap done. Re-run any time; it only does what's missing."
