@@ -56,6 +56,12 @@ just pi-check pi-tx   # Ansible dry run with diff
 just pi-apply pi-tx
 ```
 
+**First run after a reflash:** flash Raspberry Pi OS Lite with Raspberry Pi Imager (user `admin`,
+SSH enabled with your public key). Remove the old `pi-tx` from the Tailscale admin, then run
+`just pi-apply pi-tx -e ansible_host=<LAN IP>`. That run installs Tailscale; later runs reach the
+Pi over Tailscale SSH. `pi-check` on a never-applied host reports errors for packages that don't
+exist yet but keeps going.
+
 - TeslaMate web UIs bind to `127.0.0.1` on the Pi (reach them with `ssh -L` for now).
 - Nightly `pg_dump -Fc` to the USB drive, 14-day retention, healthchecks.io ping on success.
 

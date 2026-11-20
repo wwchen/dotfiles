@@ -21,11 +21,24 @@ teslamate_db_name: teslamate
 teslamate_custom_dashboards_repo: https://github.com/jheredianet/Teslamate-CustomGrafanaDashboards.git
 teslamate_custom_dashboards_version: main
 
-# Tunnel token comes from OpenTofu (infra/cloudflare) via `just pi-apply`. Empty = no cloudflared.
+# Run cloudflared for this host. When true, a missing token fails the run instead of
+# silently removing the connector. The token comes from OpenTofu via `just pi-apply`.
+teslamate_cloudflared_enabled: false
 teslamate_cloudflared_token: >-
   {{ (lookup('ansible.builtin.env', 'CLOUDFLARE_TUNNEL_TOKENS') | default('{}', true) | from_json).get(inventory_hostname, '') }}
 
 teslamate_backup_mount: /mnt/usb1
+# e.g. "UUID=1234-ABCD" (see `lsblk -f`) to have Ansible add the fstab entry and mount it.
+# Empty = you manage the mount; backups fail (and ping /fail) while it isn't mounted.
+teslamate_backup_mount_src: ""
+teslamate_backup_mount_fstype: ext4
 teslamate_backup_dir: "{{ teslamate_backup_mount }}/rpi-backup/teslamate"
 teslamate_backup_keep_days: 14
 teslamate_backup_hour: 3
+
+# Everything written to .env, checked for characters that single-quoting can't hold.
+teslamate_env_values:
+  - "{{ secrets.teslamate.encryption_key }}"
+  - "{{ secrets.teslamate.db_password }}"
+  - "{{ secrets.teslamate.api_token | default('') }}"
+  - "{{ teslamate_cloudflared_token }}"

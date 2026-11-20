@@ -1,4 +1,8 @@
 ---
+# `ignore_errors: "{{ ansible_check_mode }}"`: on a host that has never been applied,
+# `just pi-check` can't evaluate these (the repo/package/group don't exist yet), so they
+# report an error but don't stop the dry run. Real runs still fail normally.
+
 - name: Add Docker apt repository
   ansible.builtin.deb822_repository:
     name: docker
@@ -8,23 +12,27 @@
     components: stable
     architectures: "{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}"
     signed_by: https://download.docker.com/linux/debian/gpg
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Install Docker Engine and Compose
   ansible.builtin.apt:
     name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
     update_cache: true
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Start Docker on boot
   ansible.builtin.service:
     name: docker
     state: started
     enabled: true
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Let the admin user run docker
   ansible.builtin.user:
     name: "{{ docker_user }}"
     groups: docker
     append: true
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Reconnect so the new group applies
   ansible.builtin.meta: reset_connection

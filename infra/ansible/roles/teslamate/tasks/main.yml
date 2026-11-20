@@ -1,20 +1,36 @@
 ---
-- name: Check secrets are present
+# See roles/docker for why some tasks ignore errors only in check mode.
+
+- name: Check secrets are present and safe to write to .env
   ansible.builtin.assert:
     that:
       - secrets.teslamate.encryption_key | default('') | length > 0
       - secrets.teslamate.db_password | default('') | length > 0
-    fail_msg: Fill in teslamate.* in secrets/infra.sops.yaml (`just secrets-edit`).
+      # .env values are single-quoted (no $-interpolation); a ' or newline can't be represented.
+      - teslamate_env_values | select('search', "['\\n]") | list | length == 0
+    fail_msg: >-
+      Fill in teslamate.* in secrets/infra.sops.yaml (`just secrets-edit`), without ' or newlines.
     quiet: true
+
+- name: Check the Cloudflare tunnel token
+  ansible.builtin.assert:
+    that: teslamate_cloudflared_token | length > 0
+    fail_msg: >-
+      teslamate_cloudflared_enabled is true but no tunnel token was found for {{ inventory_hostname }}.
+      Run through `just pi-apply` (it reads the token from OpenTofu). Applying without it would
+      remove the running cloudflared and take the public hostname offline.
+    quiet: true
+  when: teslamate_cloudflared_enabled
 
 - name: Create TeslaMate directories
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: "{{ item.path }}"
     state: directory
-    mode: "0750"
+    mode: "{{ item.mode }}"
   loop:
-    - "{{ teslamate_dir }}"
-    - "{{ teslamate_dir }}/import"
+    - { path: "{{ teslamate_dir }}", mode: "0750" }
+    # Bind-mounted into the container, which runs as a non-root user: must be readable.
+    - { path: "{{ teslamate_dir }}/import", mode: "0755" }
 
 - name: Fetch custom Grafana dashboards
   ansible.builtin.git:
@@ -22,6 +38,7 @@
     dest: "{{ teslamate_dir }}/Teslamate-CustomGrafanaDashboards"
     version: "{{ teslamate_custom_dashboards_version }}"
     depth: 1
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Write .env (secrets)
   ansible.builtin.template:
@@ -42,6 +59,26 @@
     dest: "{{ teslamate_dir }}/{{ item }}"
     mode: "0750"
   loop: [backup.sh, restore.sh]
+  diff: false   # backup.sh embeds the healthchecks URL
+
+- name: Mount the backup drive
+  ansible.posix.mount:
+    path: "{{ teslamate_backup_mount }}"
+    src: "{{ teslamate_backup_mount_src }}"
+    fstype: "{{ teslamate_backup_mount_fstype }}"
+    opts: defaults,nofail
+    state: mounted
+  become: true
+  when: teslamate_backup_mount_src | length > 0
+
+- name: Create the backup directory (owned by the user cron runs as)
+  ansible.builtin.file:
+    path: "{{ teslamate_backup_dir }}"
+    state: directory
+    owner: "{{ teslamate_user }}"
+    group: "{{ teslamate_user }}"
+    mode: "0750"
+  become: true
 
 - name: Run the stack
   community.docker.docker_compose_v2:
@@ -49,6 +86,7 @@
     state: present
     pull: missing
     remove_orphans: true
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Schedule nightly backup
   ansible.builtin.cron:

@@ -1,6 +1,7 @@
 ---
 base_user: "{{ ansible_user }}"
-base_packages: [git, vim, curl, tmux, htop, jq, rsync, unattended-upgrades, ufw]
+# python3-debian: needed by deb822_repository (docker/tailscale apt repos).
+base_packages: [git, vim, curl, tmux, htop, jq, rsync, unattended-upgrades, ufw, python3-debian]
 # Packages to purge, e.g. [samba] if nothing needs the SMB share.
 base_purge_packages: []
 base_authorized_keys: []

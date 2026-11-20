@@ -51,10 +51,16 @@ iterm-export profile="Default":
 # Create secrets/infra.sops.yaml from the example (once)
 [group('secrets')]
 secrets-init:
+    #!/usr/bin/env bash
+    set -euo pipefail
     test ! -e {{ secrets }} || { echo "{{ secrets }} already exists"; exit 1; }
-    cp secrets/infra.example.yaml {{ secrets }}
-    sops --encrypt --in-place {{ secrets }}
-    @echo "Now run: just secrets-edit"
+    # Encrypt via a temp file so a sops failure never leaves plaintext at the real path.
+    tmp="secrets/.tmp-$$.sops.yaml"
+    trap 'rm -f "$tmp" "$tmp.enc"' EXIT
+    cp secrets/infra.example.yaml "$tmp"
+    sops encrypt "$tmp" > "$tmp.enc"
+    mv "$tmp.enc" {{ secrets }}
+    echo "Now run: just secrets-edit"
 
 # Edit encrypted secrets in $EDITOR
 [group('secrets')]
@@ -63,13 +69,13 @@ secrets-edit:
 
 # Dry run: show what would change on a host (or group)
 [group('pis')]
-pi-check host="all":
-    @just _ansible --check --diff --limit {{ host }}
+pi-check host="all" *args:
+    @just _ansible --check --diff --limit {{ host }} {{ args }}
 
 # Apply the playbook to a host (or group)
 [group('pis')]
-pi-apply host="all":
-    @just _ansible --diff --limit {{ host }}
+pi-apply host="all" *args:
+    @just _ansible --diff --limit {{ host }} {{ args }}
 
 [private]
 _ansible *args:

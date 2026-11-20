@@ -31,13 +31,26 @@
       KbdInteractiveAuthentication no
   notify: Restart sshd
 
-- name: Manage authorized_keys (only the keys listed in base_authorized_keys)
-  ansible.builtin.copy:
-    dest: "/home/{{ base_user }}/.ssh/authorized_keys"
-    owner: "{{ base_user }}"
-    group: "{{ base_user }}"
-    mode: "0600"
-    content: "{{ (base_authorized_keys | join('\n') ~ '\n') if base_authorized_keys else '' }}"
+# Only when keys are listed: an empty list must not wipe the key this very run may be
+# using (the first run after a reflash is plain SSH, before Tailscale is installed).
+- name: Manage authorized_keys (exactly the keys in base_authorized_keys)
+  when: base_authorized_keys | length > 0
+  block:
+    - name: Ensure ~/.ssh exists
+      ansible.builtin.file:
+        path: "/home/{{ base_user }}/.ssh"
+        state: directory
+        owner: "{{ base_user }}"
+        group: "{{ base_user }}"
+        mode: "0700"
+
+    - name: Write authorized_keys
+      ansible.builtin.copy:
+        dest: "/home/{{ base_user }}/.ssh/authorized_keys"
+        owner: "{{ base_user }}"
+        group: "{{ base_user }}"
+        mode: "0600"
+        content: "{{ base_authorized_keys | join('\n') ~ '\n' }}"
 
 - name: Firewall
   when: base_firewall

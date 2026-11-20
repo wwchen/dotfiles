@@ -8,9 +8,11 @@ DIR={{ teslamate_backup_dir | quote }}
 HC={{ secrets.teslamate.healthcheck_url | default('') | quote }}
 COMPOSE=(docker compose --project-directory {{ teslamate_dir | quote }})
 
+out=""
 ping() { [[ -z "$HC" ]] || curl -fsS -m 10 --retry 3 "$HC$1" >/dev/null || true; }
 fail() { echo "$(date -Is) FAILED: $*" >&2; ping /fail; exit 1; }
 trap 'fail "line $LINENO"' ERR
+trap '[[ -n "$out" ]] && rm -f "$out.partial"' EXIT   # never leave a half-written dump
 
 findmnt --mountpoint "$MOUNT" >/dev/null || fail "$MOUNT is not mounted"
 mkdir -p "$DIR"
@@ -21,6 +23,7 @@ out="$DIR/teslamate-$(date +%F).dump"
 [[ -s "$out.partial" ]] || fail "empty dump"
 mv "$out.partial" "$out"
 
-find "$DIR" -maxdepth 1 -name 'teslamate-*.dump' -mtime +{{ teslamate_backup_keep_days }} -delete
+find "$DIR" -maxdepth 1 \( -name 'teslamate-*.dump' -mtime +{{ teslamate_backup_keep_days }} \
+  -o -name 'teslamate-*.dump.partial' -mmin +60 \) -delete
 echo "$(date -Is) backed up to $out ($(du -h "$out" | cut -f1))"
 ping ""

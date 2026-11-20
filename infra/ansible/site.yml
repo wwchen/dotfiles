@@ -13,12 +13,14 @@
   hosts: pis
   become: true
   roles:
+    # tailscale before docker: docker's reset_connection drops the SSH session, and
+    # after a reflash Tailscale SSH is what reconnects without any authorized_keys.
     - role: base
       tags: [base]
-    - role: docker
-      tags: [docker]
     - role: tailscale
       tags: [tailscale]
+    - role: docker
+      tags: [docker]
 
 - name: TeslaMate
   hosts: teslamate

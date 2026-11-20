@@ -72,7 +72,7 @@ services:
       - teslamateapi-data:/opt/app/data
     depends_on: [database, teslamate, mosquitto]
 {% endif %}
-{% if teslamate_cloudflared_token %}
+{% if teslamate_cloudflared_enabled %}
 
   cloudflared:
     image: {{ teslamate_cloudflared_image }}

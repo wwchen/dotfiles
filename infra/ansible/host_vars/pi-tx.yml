@@ -1,4 +1,6 @@
 ---
+# Reflashing? Remove the old pi-tx machine from the tailnet admin first, or the new node
+# registers as pi-tx-1 and `ansible_host: pi-tx` keeps pointing at the dead one.
 # Matches the Pi's current clock (UTC-6). Confirm.
 teslamate_tz: America/Chicago
 teslamate_grafana_root_url: https://arthur.floo.ca/dash
@@ -6,5 +8,7 @@ teslamate_backup_mount: /mnt/usb1
 teslamate_backup_dir: /mnt/usb1/rpi-backup/teslamate
 # The old compose file had teslamateapi under `profiles: []`, i.e. running. Flip if unused.
 teslamate_api_enabled: true
-# LAN/Tailscale access to the web UIs. 127.0.0.1 = only via the Cloudflare tunnel or `ssh -L`.
+# Where the web UIs listen. 127.0.0.1 = only via the Cloudflare tunnel or `ssh -L`.
+# Don't use 0.0.0.0: Docker-published ports bypass ufw, so TeslaMate (no login) would be
+# open to the whole LAN. For Tailscale-only access use the node's 100.x address instead.
 teslamate_bind_address: 127.0.0.1
