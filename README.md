@@ -34,6 +34,7 @@ chezmoi apply -R                                     # same, and updates oh-my-z
 ./brew-install.sh dev                                # install a group
 brew bundle add --file=brew/Brewfile.dev ripgrep     # track + install (--cask for apps)
 cat brew/Brewfile.* | brew bundle cleanup --file=-   # installed but untracked
+just iterm-theme                                     # pick iTerm2 colors (or pass a scheme name)
 just iterm-export                                    # after editing iTerm2's Default profile
 ```
 
