@@ -8,6 +8,8 @@ teslamate_backup_mount: /mnt/usb1
 teslamate_backup_dir: /mnt/usb1/rpi-backup/teslamate
 # The old compose file had teslamateapi under `profiles: []`, i.e. running. Flip if unused.
 teslamate_api_enabled: true
+# Runs cloudflared with the token from infra/cloudflare (fails the run if it can't be read).
+teslamate_cloudflared_enabled: true
 # Where the web UIs listen. 127.0.0.1 = only via the Cloudflare tunnel or `ssh -L`.
 # Don't use 0.0.0.0: Docker-published ports bypass ufw, so TeslaMate (no login) would be
 # open to the whole LAN. For Tailscale-only access use the node's 100.x address instead.

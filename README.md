@@ -69,6 +69,8 @@ exist yet but keeps going.
 
 - OpenTofu state is committed, encrypted with the passphrase in sops. No backend needed.
 - The tunnel token flows OpenTofu → Ansible, so Cloudflare is the single source of truth.
+  `pi-apply` stops if it can't read the token rather than dropping cloudflared;
+  `SKIP_TUNNEL_TOKENS=1 just pi-apply pi-tx --tags base` runs roles that don't need it.
 - TeslaMate web UIs bind to `127.0.0.1` on the Pi; reach them through the tunnel (Access-protected).
 - Nightly `pg_dump -Fc` to the USB drive, 14-day retention, healthchecks.io ping on success.
 

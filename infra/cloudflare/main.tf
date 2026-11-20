@@ -23,9 +23,10 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "this" {
   config = {
     ingress = concat(
       [for r in each.value.ingress : {
-        hostname = r.hostname
-        service  = r.service
-        path     = r.path
+        hostname       = r.hostname
+        service        = r.service
+        path           = r.path
+        origin_request = r.origin_request
       }],
       [{ service = "http_status:404" }],
     )

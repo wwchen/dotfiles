@@ -25,8 +25,38 @@ variable "tunnels" {
       hostname = string
       service  = string
       path     = optional(string)
+      # Per-rule origin settings (provider v5 schema), e.g. { no_tls_verify = true }.
+      origin_request = optional(object({
+        access = optional(object({
+          aud_tag   = optional(list(string))
+          team_name = optional(string)
+          required  = optional(bool)
+        }))
+        ca_pool                  = optional(string)
+        connect_timeout          = optional(number)
+        disable_chunked_encoding = optional(bool)
+        http2_origin             = optional(bool)
+        http_host_header         = optional(string)
+        keep_alive_connections   = optional(number)
+        keep_alive_timeout       = optional(number)
+        match_sn_ito_host        = optional(bool)
+        no_happy_eyeballs        = optional(bool)
+        no_tls_verify            = optional(bool)
+        origin_server_name       = optional(string)
+        proxy_type               = optional(string)
+        tcp_keep_alive           = optional(number)
+        tls_timeout              = optional(number)
+      }))
     }))
   }))
+
+  validation {
+    condition = alltrue([
+      for h in distinct(flatten([for t in values(var.tunnels) : [for r in t.ingress : r.hostname]])) :
+      length([for t in values(var.tunnels) : t if contains([for r in t.ingress : r.hostname], h)]) == 1
+    ])
+    error_message = "Each hostname must belong to exactly one tunnel (its DNS record can only point at one)."
+  }
 }
 
 variable "access_apps" {
