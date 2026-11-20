@@ -29,12 +29,18 @@ export HOMEBREW_CASK_OPTS="--adopt"
 # already confirmed (DOTFILES_YES).
 can_ask() { [[ -z "${DOTFILES_YES:-}" ]] && { : </dev/tty; } 2>/dev/null; }
 
-# DOTFILES_PLAN=1 (from `just apply`): only say what would be installed.
+# DOTFILES_PLAN=1 (from `just apply`): only say what would be installed or fixed.
 if [[ -n "${DOTFILES_PLAN:-}" ]]; then
+  err="$(mktemp)"; trap 'rm -f "$err"' EXIT
   for f in "${files[@]}"; do
     [[ -f "$f" ]] || continue
-    missing="$(brewfile_missing "$f" | paste -sd ',' - | sed 's/,/, /g')"
-    [[ -n "$missing" ]] && echo "brew install ($(basename "$f")): $missing"
+    status=0
+    pending="$(brewfile_pending "$f" 2>"$err" | paste -sd ',' - | sed 's/,/, /g')" || status=$?
+    if (( status != 0 )); then
+      echo "brew ($(basename "$f")): check failed: $(grep -m1 . "$err")"
+    elif [[ -n "$pending" ]]; then
+      echo "brew install/update ($(basename "$f")): $pending"
+    fi
   done
   exit 0
 fi

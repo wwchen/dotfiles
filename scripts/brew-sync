@@ -28,9 +28,25 @@ for f in "$BREW_DIR"/Brewfile.*; do groups+=("${f##*/Brewfile.}"); done
 expected=(core apps)
 [[ "$dev" == true ]] && expected+=(dev)
 expected+=("$machine")
+# Tracked: every group except the other machine types' Brewfiles (an app listed only for work
+# Macs and installed here by hand is still offered for this Mac's Brewfile).
+tracked=()
+for g in "${groups[@]}"; do
+  case "$g" in personal|work) [[ "$g" == "$machine" ]] || continue ;; esac
+  tracked+=("$g")
+done
 
 file_of() { echo "$BREW_DIR/Brewfile.$1"; }
-existing() { local g; for g in "$@"; do [[ -f "$(file_of "$g")" ]] && file_of "$g"; done; }
+existing() {  # existing GROUP... -> sets FILES to those groups' Brewfiles that exist (paths may have spaces)
+  local g; FILES=()
+  for g in "$@"; do [[ -f "$(file_of "$g")" ]] && FILES+=("$(file_of "$g")"); done
+  return 0
+}
+keys_of() {  # keys_of GROUP... -> brewfile_keys of the groups' existing Brewfiles (none: no output)
+  existing "$@"
+  (( ${#FILES[@]} )) && brewfile_keys "${FILES[@]}"
+  return 0
+}
 
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 
@@ -39,11 +55,9 @@ brew bundle dump --force --file="$tmp/installed" >/dev/null
 grep -E '^(tap|brew|cask|mas|npm) ' "$tmp/installed" > "$tmp/installed.lines" || true
 brewfile_keys "$tmp/installed.lines" > "$tmp/installed.keys"
 # Untracked = in no Brewfile at all (a dev entry counts even where dev is off).
-# shellcheck disable=SC2046  # one path per line, no spaces
-brewfile_keys $(existing "${groups[@]}") > "$tmp/tracked.keys"
+keys_of "${tracked[@]}" > "$tmp/tracked.keys"
 # Missing = expected on this Mac but not installed.
-# shellcheck disable=SC2046
-brewfile_keys $(existing "${expected[@]}") > "$tmp/expected.keys"
+keys_of "${expected[@]}" > "$tmp/expected.keys"
 # "<type> <name>" per line; names may contain spaces (App Store apps). Lines starting with # are comments.
 sed -nE '/^[[:space:]]*#/d; s/^[[:space:]]*([a-z]+)[[:space:]]+(.*[^[:space:]])[[:space:]]*$/\1 \2/p' "$IGNORE" | sort -u > "$tmp/ignore.keys"
 
@@ -63,9 +77,10 @@ if (( CHECK_ONLY )); then
   exit $?
 fi
 
-remove_key() {  # drop a key's line from whichever Brewfile has it
+remove_key() {  # drop a key's line from whichever of this Mac's Brewfiles has it
   local f
-  for f in $(existing "${groups[@]}"); do brewfile_remove "$1" "$f"; done
+  existing "${expected[@]}"
+  for f in ${FILES[@]+"${FILES[@]}"}; do brewfile_remove "$1" "$f"; done
 }
 
 uninstall() {
@@ -108,7 +123,8 @@ if [[ $n_missing -gt 0 ]]; then
   while IFS= read -r key; do
     read -r -p "  $key ? [i/r/S] " ans </dev/tty
     case "$ans" in
-      i|I) for f in $(existing "${expected[@]}"); do brewfile_line "$key" "$f"; done | head -1 > "$tmp/one"
+      i|I) existing "${expected[@]}"
+           for f in ${FILES[@]+"${FILES[@]}"}; do brewfile_line "$key" "$f"; done | head -1 > "$tmp/one"
            brew bundle install --no-upgrade --file="$tmp/one" </dev/null || echo "    install failed; skipping" ;;
       r|R) remove_key "$key"; echo "    → removed" ;;
       *)   ;;
