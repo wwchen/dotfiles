@@ -1,0 +1,41 @@
+#!/bin/bash
+# Save the iTerm2 profile you've been tweaking in Settings back into the repo as the
+# managed "wc" Dynamic Profile.
+#
+# Tweak the regular "Default" profile, not "wc": iTerm2 doesn't save Settings edits
+# to dynamic profiles, they vanish on restart.
+#
+# Usage: scripts/iterm-export [profile name]   (default: "Default")
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OUT="$ROOT/home/Library/Application Support/iTerm2/DynamicProfiles/wc.json"
+GUID="B5E1D3A0-7C7E-4B8E-9D55-5C1F0E6A2E01"   # must match run_onchange_after_20-iterm2.sh.tmpl
+want="${1:-Default}"
+
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+defaults export com.googlecode.iterm2 "$tmp/prefs.plist"
+plutil -extract "New Bookmarks" json -o "$tmp/static.json" "$tmp/prefs.plist"
+default_guid="$(defaults read com.googlecode.iterm2 'Default Bookmark Guid' 2>/dev/null || true)"
+
+# Dynamic profiles live outside the plist; include them so the managed profile can be re-exported.
+dyn="$HOME/Library/Application Support/iTerm2/DynamicProfiles/wc.json"
+[[ -f "$dyn" ]] || dyn=/dev/null
+
+python3 - "$tmp/static.json" "$dyn" "$OUT" "$GUID" "$default_guid" "$want" <<'PY'
+import json, sys
+static_path, dyn_path, out, guid, default_guid, want = sys.argv[1:]
+profiles = json.load(open(static_path))
+if dyn_path != "/dev/null":
+    profiles += json.load(open(dyn_path)).get("Profiles", [])
+match = [p for p in profiles if (want and p.get("Name") == want) or (not want and p.get("Guid") == default_guid)]
+if not match:
+    sys.exit(f"profile not found: {want or default_guid}; have: {[p.get('Name') for p in profiles]}")
+p = dict(match[0])
+for k in ("Dynamic Profile Filename", "Dynamic Profile Parent Name", "Dynamic Profile Parent GUID"):
+    p.pop(k, None)
+p.update({"Name": "wc", "Guid": guid, "Default Bookmark": "No"})
+json.dump({"Profiles": [p]}, open(out, "w"), indent=2, sort_keys=True)
+open(out, "a").write("\n")
+print(f"wrote {out}")
+PY

@@ -34,6 +34,12 @@ brew-sync:
 brew-check:
     scripts/brew-sync --check
 
+# Save iTerm2's "Default" profile (the one to tweak in Settings) into the repo
+[group('mac')]
+iterm-export profile="Default":
+    scripts/iterm-export "{{ profile }}"
+    @echo "Next: git diff to review, then 'just apply' to load it into iTerm2."
+
 # Lint shell scripts
 [group('checks')]
 lint:
