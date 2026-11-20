@@ -38,3 +38,8 @@ _init:
 [group('checks')]
 lint:
     shellcheck bootstrap.sh scripts/*
+
+# Run the test suite (tests/*.bats)
+[group('checks')]
+test:
+    bats tests/
