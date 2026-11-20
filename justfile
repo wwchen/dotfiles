@@ -14,7 +14,7 @@ default:
 diff:
     chezmoi --source {{ justfile_directory() }} diff
 
-# Apply dotfiles; also re-runs chezmoi scripts whose inputs changed
+# Apply dotfiles; also runs brew bundle / iTerm2 scripts when their inputs changed
 [group('mac')]
 apply:
     chezmoi --source {{ justfile_directory() }} apply -v
@@ -23,3 +23,18 @@ apply:
 [group('mac')]
 apply-dry:
     chezmoi --source {{ justfile_directory() }} apply --dry-run --verbose
+
+# Walk through installed-vs-Brewfile drift and update the Brewfiles
+[group('mac')]
+brew-sync:
+    scripts/brew-sync
+
+# Report Brewfile drift only (exit 1 if any)
+[group('mac')]
+brew-check:
+    scripts/brew-sync --check
+
+# Lint shell scripts
+[group('checks')]
+lint:
+    shellcheck scripts/*
