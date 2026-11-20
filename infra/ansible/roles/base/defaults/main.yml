@@ -1,0 +1,9 @@
+---
+base_user: "{{ ansible_user }}"
+base_packages: [git, vim, curl, tmux, htop, jq, rsync, unattended-upgrades, ufw]
+# Packages to purge, e.g. [samba] if nothing needs the SMB share.
+base_purge_packages: []
+base_authorized_keys: []
+base_firewall: true
+# Plain SSH is allowed from here as well as from Tailscale.
+base_lan_cidr: 192.168.0.0/16

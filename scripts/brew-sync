@@ -1,0 +1,103 @@
+#!/bin/bash
+# Reconcile what Homebrew has installed with the Brewfiles, interactively.
+#   scripts/brew-sync          walk through drift, edit Brewfiles as you answer
+#   scripts/brew-sync --check  only report drift; exit 1 if there is any
+# Written for macOS's stock bash 3.2.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BREW_DIR="$ROOT/brew"
+CHECK_ONLY=0
+[[ "${1:-}" == "--check" ]] && CHECK_ONLY=1
+
+machine="$(chezmoi execute-template '{{ .machine }}' 2>/dev/null || true)"
+[[ -n "$machine" ]] || machine=personal
+COMMON="$BREW_DIR/Brewfile"
+MACHINE_FILE="$BREW_DIR/Brewfile.$machine"
+IGNORE="$BREW_DIR/ignore"
+touch "$MACHINE_FILE" "$IGNORE"
+
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+
+# "type name" for each entry; types we sync: tap brew cask mas npm
+keys() { sed -nE 's/^[[:space:]]*(tap|brew|cask|mas|npm) "([^"]+)".*/\1 \2/p' "$@" | sort -u; }
+
+brew bundle dump --force --file="$tmp/installed" >/dev/null
+grep -E '^(tap|brew|cask|mas|npm) ' "$tmp/installed" > "$tmp/installed.lines" || true
+keys "$tmp/installed.lines" > "$tmp/installed.keys"
+keys "$COMMON" "$MACHINE_FILE" > "$tmp/tracked.keys"
+sed -nE 's/^[[:space:]]*([a-z]+)[[:space:]]+([^[:space:]#]+).*/\1 \2/p' "$IGNORE" | sort -u > "$tmp/ignore.keys"
+
+comm -23 "$tmp/installed.keys" "$tmp/tracked.keys" | comm -23 - "$tmp/ignore.keys" > "$tmp/untracked"
+# "missing" also counts formulae present as dependencies (dump only lists leaves).
+{ cat "$tmp/installed.keys"; brew list --formula -1 | sed 's/^/brew /'; } | sort -u > "$tmp/present.keys"
+comm -13 "$tmp/present.keys" "$tmp/tracked.keys" > "$tmp/missing"
+
+n_untracked=$(wc -l < "$tmp/untracked" | tr -d ' ')
+n_missing=$(wc -l < "$tmp/missing" | tr -d ' ')
+echo "machine: $machine   untracked: $n_untracked   missing: $n_missing"
+
+if (( CHECK_ONLY )); then
+  [[ $n_untracked -gt 0 ]] && { echo "== installed but not in a Brewfile"; sed 's/^/  /' "$tmp/untracked"; }
+  [[ $n_missing -gt 0 ]]   && { echo "== in a Brewfile but not installed"; sed 's/^/  /' "$tmp/missing"; }
+  (( n_untracked + n_missing == 0 ))
+  exit $?
+fi
+
+line_for() {  # full Brewfile line (keeps options like `id:` / `link:`) for a key
+  local type="${1%% *}" name="${1#* }"
+  grep -E "^$type \"$name\"" "$tmp/installed.lines" | head -1
+}
+
+remove_key() {  # drop a key's line from whichever Brewfile has it
+  local type="${1%% *}" name="${1#* }" f
+  for f in "$COMMON" "$MACHINE_FILE"; do
+    awk -v t="$type" -v n="\"$name\"" '!($1 == t && index($0, t " " n) == 1)' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  done
+}
+
+uninstall() {
+  local type="${1%% *}" name="${1#* }"
+  case "$type" in
+    brew) brew uninstall "$name" ;;
+    cask) brew uninstall --cask "$name" ;;
+    tap)  brew untap "$name" ;;
+    npm)  npm uninstall -g "$name" ;;
+    mas)  echo "  remove App Store apps from Launchpad/Finder" ;;
+  esac
+}
+
+if [[ $n_untracked -gt 0 ]]; then
+  echo
+  echo "== Installed but not in a Brewfile"
+  echo "   [c] add to Brewfile (all Macs)  [m] add to Brewfile.$machine  [i] ignore forever  [u] uninstall  [s] skip"
+  while IFS= read -r key; do
+    read -r -p "  $key ? [c/m/i/u/S] " ans </dev/tty
+    case "$ans" in
+      c|C) line_for "$key" >> "$COMMON";        echo "    → Brewfile" ;;
+      m|M) line_for "$key" >> "$MACHINE_FILE";  echo "    → Brewfile.$machine" ;;
+      i|I) echo "$key" >> "$IGNORE";             echo "    → ignore" ;;
+      u|U) uninstall "$key" ;;
+      *)   ;;
+    esac
+  done < "$tmp/untracked"
+fi
+
+if [[ $n_missing -gt 0 ]]; then
+  echo
+  echo "== In a Brewfile but not installed"
+  echo "   [i] install now  [r] remove from Brewfile  [s] skip"
+  while IFS= read -r key; do
+    read -r -p "  $key ? [i/r/S] " ans </dev/tty
+    case "$ans" in
+      i|I) grep -hE "^${key%% *} \"${key#* }\"" "$COMMON" "$MACHINE_FILE" | head -1 > "$tmp/one"
+           brew bundle install --no-upgrade --file="$tmp/one" ;;
+      r|R) remove_key "$key"; echo "    → removed" ;;
+      *)   ;;
+    esac
+  done < "$tmp/missing"
+fi
+
+echo
+git -C "$ROOT" --no-pager diff --stat -- brew/ || true
+echo "Review with 'git diff brew/' and commit when happy."

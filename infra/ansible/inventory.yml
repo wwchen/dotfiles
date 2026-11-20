@@ -1,0 +1,14 @@
+# Hosts are reached over Tailscale (MagicDNS names); Tailscale SSH handles auth.
+all:
+  children:
+    pis:
+      hosts:
+        pi-tx:
+          ansible_host: pi-tx
+          ansible_user: admin
+        # pi-tw:            # add once you've decided what it should run
+        #   ansible_host: pi-tw
+        #   ansible_user: admin
+    teslamate:
+      hosts:
+        pi-tx:

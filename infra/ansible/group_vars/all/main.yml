@@ -1,0 +1,4 @@
+---
+# Public keys allowed for plain SSH (e.g. LAN fallback if Tailscale is down).
+# Tailscale SSH needs none. Anything not listed here is removed from authorized_keys.
+base_authorized_keys: []

@@ -1,0 +1,32 @@
+#!/bin/bash
+# Re-runs on `chezmoi apply` whenever a Brewfile that applies to this machine changes.
+# Brewfile hashes (this is what triggers the re-run):
+{{- $root := .chezmoi.workingTree }}
+#   Brewfile          {{ joinPath $root "brew/Brewfile" | include | sha256sum }}
+#   Brewfile.{{ .machine }}  {{ joinPath $root (printf "brew/Brewfile.%s" .machine) | include | sha256sum }}
+set -euo pipefail
+
+{{ if ne .chezmoi.os "darwin" -}}
+exit 0
+{{- end }}
+
+eval "$(/opt/homebrew/bin/brew shellenv bash)"
+BREW_DIR={{ joinPath $root "brew" | quote }}
+files=("$BREW_DIR/Brewfile" "$BREW_DIR/Brewfile.{{ .machine }}")
+
+# Adopt apps that were installed by hand (e.g. from a .dmg) instead of failing.
+export HOMEBREW_CASK_OPTS="--adopt"
+
+for f in "${files[@]}"; do
+  if brew bundle check --no-upgrade --file="$f" >/dev/null 2>&1; then
+    echo "brew: $(basename "$f") satisfied"
+    continue
+  fi
+  echo "brew: $(basename "$f") has missing entries:"
+  brew bundle check --no-upgrade --verbose --file="$f" | sed 's/^/  /' || true
+{{- if .interactive }}
+  read -r -p "Install them now? [Y/n] " ans </dev/tty
+  [[ "$ans" =~ ^[Nn] ]] && { echo "skipped"; continue; }
+{{- end }}
+  brew bundle install --no-upgrade --file="$f"
+done

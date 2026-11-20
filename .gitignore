@@ -1,0 +1,14 @@
+.DS_Store
+
+# sops: only the encrypted file is committed
+secrets/*.yaml
+!secrets/*.sops.yaml
+!secrets/infra.example.yaml
+
+# OpenTofu: state is encrypted client-side and committed; plugins/plans are not
+infra/cloudflare/.terraform/
+infra/cloudflare/*.tfplan
+infra/cloudflare/generated/
+
+# Ansible
+infra/ansible/*.retry

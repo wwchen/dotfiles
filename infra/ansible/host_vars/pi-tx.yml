@@ -1,0 +1,10 @@
+---
+# Matches the Pi's current clock (UTC-6). Confirm.
+teslamate_tz: America/Chicago
+teslamate_grafana_root_url: https://arthur.floo.ca/dash
+teslamate_backup_mount: /mnt/usb1
+teslamate_backup_dir: /mnt/usb1/rpi-backup/teslamate
+# The old compose file had teslamateapi under `profiles: []`, i.e. running. Flip if unused.
+teslamate_api_enabled: true
+# LAN/Tailscale access to the web UIs. 127.0.0.1 = only via the Cloudflare tunnel or `ssh -L`.
+teslamate_bind_address: 127.0.0.1
