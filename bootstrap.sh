@@ -263,7 +263,8 @@ if [[ "$dir" == "$HOME/"* ]]; then
   shown="~/$(printf '%q' "${dir#"$HOME/"}")"
 fi
 if [[ ! -f "$dir/.chezmoiroot" ]]; then
-  next+=("git clone git@github.com:$GH_REPO.git $shown")
+  # gh clones over the protocol it was logged in with: SSH, with the login line above.
+  next+=("gh repo clone $GH_REPO $shown")
 fi
 next+=("cd $shown && just apply")
 
