@@ -8,6 +8,7 @@ One repo for setting up my Macs and managing my remote boxes.
 | Mac apps & CLIs | Homebrew Bundle (+ `mas`) | `brew/Brewfile`, `brew/Brewfile.{personal,work}`, opt-in `brew/Brewfile.dev` |
 | iTerm2 | Dynamic Profile + `defaults` | `home/Library/Application Support/iTerm2/`, `home/run_onchange_after_20-iterm2.sh.tmpl` |
 | Raspberry Pis (TeslaMate, Tailscale, backups) | Ansible | `infra/ansible/` |
+| Cloudflare Tunnel, DNS, Access | OpenTofu | `infra/cloudflare/` |
 | Secrets | sops + age | `secrets/infra.sops.yaml` |
 | Old configs (irssi, screen, 2013 bootstrap…) | — | `archive/` (not deployed) |
 
@@ -50,7 +51,11 @@ Per-machine untracked overrides: `~/.zshrc.local`, `~/.gitconfig.local`.
 
 ```bash
 just secrets-init     # once: create secrets/infra.sops.yaml from the example
-just secrets-edit     # fill in Tailscale/TeslaMate secrets
+just secrets-edit     # fill in Cloudflare/Tailscale/TeslaMate secrets
+
+just cf-import        # once: generate import blocks for existing Cloudflare resources
+just cf-plan          # preview Cloudflare changes (terraform-style plan)
+just cf-apply
 
 just pi-check pi-tx   # Ansible dry run with diff
 just pi-apply pi-tx
@@ -62,7 +67,9 @@ SSH enabled with your public key). Remove the old `pi-tx` from the Tailscale adm
 Pi over Tailscale SSH. `pi-check` on a never-applied host reports errors for packages that don't
 exist yet but keeps going.
 
-- TeslaMate web UIs bind to `127.0.0.1` on the Pi (reach them with `ssh -L` for now).
+- OpenTofu state is committed, encrypted with the passphrase in sops. No backend needed.
+- The tunnel token flows OpenTofu → Ansible, so Cloudflare is the single source of truth.
+- TeslaMate web UIs bind to `127.0.0.1` on the Pi; reach them through the tunnel (Access-protected).
 - Nightly `pg_dump -Fc` to the USB drive, 14-day retention, healthchecks.io ping on success.
 
 ## Requirements
