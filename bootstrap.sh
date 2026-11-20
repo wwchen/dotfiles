@@ -80,6 +80,9 @@ if [[ -n "$SELF" && -f "$SELF" && -f "$(dirname "$SELF")/.chezmoiroot" ]]; then
   ROOT="$(cd "$(dirname "$SELF")" && pwd)"
 fi
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+# Ctrl-C stops everything. Without this, a tool that catches Ctrl-C itself (brew does) just
+# exits with an error, and the script would carry on to the next step.
+trap 'echo; echo "${red}✗ Interrupted.${reset} Re-run any time; it picks up where it left off." >&2; exit 130' INT
 
 # ════════════════════════════════════════════════════════════════════════════════════════
 phase "1/3 Prerequisites"
