@@ -12,6 +12,8 @@ exit 0
 
 eval "$(/opt/homebrew/bin/brew shellenv bash)"
 BREW_DIR={{ joinPath $root "brew" | quote }}
+# shellcheck source=/dev/null
+. {{ joinPath $root "scripts/brewfile.sh" | quote }}
 # Every Mac: core (also installed by bootstrap) and apps; then what this Mac opted into at
 # `chezmoi init`; then its machine type. Files that don't exist are skipped.
 files=("$BREW_DIR/Brewfile.core" "$BREW_DIR/Brewfile.apps")
@@ -31,9 +33,7 @@ can_ask() { [[ -z "${DOTFILES_YES:-}" ]] && { : </dev/tty; } 2>/dev/null; }
 if [[ -n "${DOTFILES_PLAN:-}" ]]; then
   for f in "${files[@]}"; do
     [[ -f "$f" ]] || continue
-    # brew bundle prints what's missing on stderr.
-    missing="$(brew bundle check --no-upgrade --verbose --file="$f" 2>&1 \
-      | sed -nE 's/^→ [A-Za-z]+ (.+) needs to be installed.*/\1/p' | paste -sd ',' - | sed 's/,/, /g')"
+    missing="$(brewfile_missing "$f" | paste -sd ',' - | sed 's/,/, /g')"
     [[ -n "$missing" ]] && echo "brew install ($(basename "$f")): $missing"
   done
   exit 0
