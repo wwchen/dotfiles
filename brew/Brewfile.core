@@ -1,0 +1,19 @@
+# Core: every Mac, installed by bootstrap.sh (phase 2) before anything else.
+
+# --- shell & CLI ---
+brew "chezmoi"
+brew "fzf"
+brew "gh"
+brew "jq"
+brew "just"
+brew "mas"
+brew "starship"
+brew "zsh-autosuggestions"
+
+# --- passwords ---
+cask "1password"
+cask "1password-cli"
+
+# --- terminal ---
+cask "iterm2"
+cask "font-fira-code-nerd-font"
