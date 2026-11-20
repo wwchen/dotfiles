@@ -30,6 +30,16 @@ _init:
       exit 1
     fi
 
+# Walk through installed-vs-Brewfile drift and update the Brewfiles
+[group('mac')]
+brew-sync:
+    scripts/brew-sync
+
+# Report Brewfile drift only (exit 1 if any)
+[group('mac')]
+brew-check:
+    scripts/brew-sync --check
+
 # Lint shell scripts
 [group('checks')]
 lint:

@@ -1,0 +1,11 @@
+# Everyday apps: every Mac, installed on `just apply`.
+# App Store (mas) entries need you signed in to the App Store app.
+
+cask "claude"
+cask "google-chrome"
+cask "istat-menus"
+cask "raycast"
+cask "tailscale-app"
+cask "thebrowsercompany-dia"
+mas "Amphetamine", id: 937984704
+mas "Magnet", id: 441258766

@@ -1,0 +1,2 @@
+# Installed things `just brew-sync` should stop asking about (one per line, "<type> <name>").
+# Example: cask some-trial-app

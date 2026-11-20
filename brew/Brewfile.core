@@ -1,4 +1,6 @@
-# Core: every Mac. Install with `brew bundle --file=brew/Brewfile.core`.
+# Core: every Mac. Installed by `just apply`, with the other groups: Brewfile.apps (every
+# Mac), Brewfile.dev (if you said yes at `chezmoi init`), Brewfile.<machine type>.
+# Sync with what's actually installed: `just brew-sync`.
 
 # --- shell & CLI ---
 brew "chezmoi"

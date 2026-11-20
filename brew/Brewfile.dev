@@ -1,0 +1,24 @@
+# Dev tools, opt-in per Mac (the `dev` answer from `chezmoi init`; change it in
+# ~/.config/chezmoi/chezmoi.toml). Left out on purpose: openjdk (big; maven still pulls
+# it in as a dependency), DBeaver, IntelliJ.
+
+tap "docker/tap", trusted: true
+
+brew "actionlint"
+brew "shellcheck"
+brew "docker"
+brew "libpq", link: true
+brew "maven"
+brew "node"
+brew "openjdk@25"
+brew "ruff"
+brew "tilt"
+cask "claude-code"
+cask "docker-desktop"
+cask "docker/tap/sbx", trusted: true
+cask "cursor"
+cask "sublime-text"
+cask "visual-studio-code"
+npm "neon"
+npm "pnpm"
+npm "vercel"

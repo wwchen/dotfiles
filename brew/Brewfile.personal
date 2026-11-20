@@ -1,0 +1,12 @@
+# Personal Macs only.
+
+cask "brave-browser"
+cask "cleanshot"
+cask "granola"
+cask "jdownloader"
+cask "logi-options+"
+cask "notion"
+cask "phoenix-slides"
+cask "spotify"
+cask "vlc"
+cask "zoom"
