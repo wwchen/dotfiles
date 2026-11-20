@@ -21,8 +21,8 @@ curl -fsSL https://raw.githubusercontent.com/wwchen/dotfiles/master/bootstrap.sh
    none of them:
 
    ```bash
-   gh auth login -h github.com -p https -w
-   gh repo clone https://github.com/wwchen/dotfiles ~/code/wwchen/dotfiles   # or anywhere
+   gh auth login -h github.com -p ssh -w   # offers to make and add an SSH key to GitHub
+   git clone git@github.com:wwchen/dotfiles.git ~/code/wwchen/dotfiles   # or anywhere
    cd ~/code/wwchen/dotfiles && just apply
    ```
 

@@ -253,7 +253,7 @@ phase "3/3 Next steps"
 # (gh, chezmoi and just come with the core apps in phase 2.)
 next=()
 if ! { command -v gh >/dev/null && gh auth status -h github.com >/dev/null 2>&1; }; then
-  next+=("gh auth login -h github.com -p https -w")
+  next+=("gh auth login -h github.com -p ssh -w")
 fi
 # This checkout if bootstrap runs from one, else ~/code/wwchen/dotfiles (clone it anywhere).
 dir="${ROOT:-$HOME/code/$GH_REPO}"
@@ -263,7 +263,7 @@ if [[ "$dir" == "$HOME/"* ]]; then
   shown="~/$(printf '%q' "${dir#"$HOME/"}")"
 fi
 if [[ ! -f "$dir/.chezmoiroot" ]]; then
-  next+=("gh repo clone https://github.com/$GH_REPO $shown")
+  next+=("git clone git@github.com:$GH_REPO.git $shown")
 fi
 next+=("cd $shown && just apply")
 
@@ -271,6 +271,7 @@ echo "  To finish setting up this Mac, run:"
 echo
 printf '    %s\n' "${next[@]}"
 echo
+echo "  Cloning over SSH needs your SSH key on GitHub: gh auth login offers to make and add one."
 echo "  \`just apply\` shows what it would change and asks before changing anything."
 echo
 ok "Bootstrap done. Re-run any time; it only does what's missing."
