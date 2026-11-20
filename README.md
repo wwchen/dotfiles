@@ -16,7 +16,7 @@ On a new Mac, run these one at a time:
 # What the rest of setup needs
 brew install chezmoi just gh
 
-# Log in to GitHub (pick SSH: it offers to make a key and add it), then clone
+# Log in to GitHub, then clone
 gh auth login
 gh repo clone wwchen/dotfiles ~/code/wwchen/dotfiles
 
