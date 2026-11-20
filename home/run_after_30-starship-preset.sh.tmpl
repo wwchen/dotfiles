@@ -4,7 +4,7 @@
 # Runs on every apply but only writes when the file differs from the preset, and never fails
 # the apply (a failure is reported and retried next time).
 set -uo pipefail
-PRESET="nerd-font-symbols"   # needs a Nerd Font (Brewfile.core: font-fira-code-nerd-font)
+PRESET="nerd-font-symbols"   # its symbols need a Nerd Font in the terminal
 TARGET="$HOME/.config/starship.toml"
 
 {{ if eq .chezmoi.os "darwin" -}}
