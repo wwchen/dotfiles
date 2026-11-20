@@ -23,6 +23,8 @@ just iterm-export # tweaked iTerm2's "Default" profile in Settings? save it to t
 **Changing the iTerm2 look:** edit the **Default** profile in iTerm2 Settings (not "wc" —
 iTerm2 doesn't save Settings edits to dynamic profiles), then `just iterm-export`,
 `git diff`, `just apply`, commit.
+The export keeps only the settings that differ from iTerm2's factory defaults, so the
+diff shows what you actually changed.
 
 Edit dotfiles in `home/` (or `chezmoi edit ~/.zshrc`), never in `~` directly.
 Per-machine untracked overrides: `~/.zshrc.local`, `~/.gitconfig.local`.
