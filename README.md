@@ -11,9 +11,7 @@ One repo for setting up my Macs and managing my remote boxes.
 On a new Mac, run these one at a time:
 
 ```bash
-# Homebrew (its installer also installs the Command Line Tools)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # What the rest of setup needs
 brew install chezmoi just gh
