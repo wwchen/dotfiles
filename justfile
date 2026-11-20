@@ -9,11 +9,6 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 default:
     @if command -v fzf >/dev/null && [ -t 0 ]; then just --choose; else just --list --unsorted; fi
 
-# Bootstrap: Homebrew, then chezmoi, just and gh; prints the commands to finish setup
-[group('mac')]
-bootstrap:
-    ./bootstrap.sh
-
 # Show what `apply` would change in your home folder (uses this checkout)
 [group('mac')]
 diff: _init
@@ -37,4 +32,4 @@ _init:
 # Lint shell scripts
 [group('checks')]
 lint:
-    shellcheck bootstrap.sh scripts/*
+    shellcheck scripts/*
