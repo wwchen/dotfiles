@@ -33,3 +33,13 @@ _init:
 [group('checks')]
 lint:
     shellcheck scripts/*
+
+# Run the test suite (tests/*.bats)
+[group('checks')]
+test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    shopt -s nullglob
+    files=(tests/*.bats)
+    if (( ${#files[@]} == 0 )); then echo "No tests yet (tests/*.bats)."; exit 0; fi
+    bats "${files[@]}"
