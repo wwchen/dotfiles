@@ -250,10 +250,8 @@ fi
 # ════════════════════════════════════════════════════════════════════════════════════════
 phase "3/3 Next steps"
 # Bootstrap stops here: the rest is printed for you to run, minus what's already done.
+# (gh, chezmoi and just come with the core apps in phase 2.)
 next=()
-missing=()
-for t in gh chezmoi just; do command -v "$t" >/dev/null || missing+=("$t"); done
-if (( ${#missing[@]} )); then next+=("brew install ${missing[*]}"); fi
 if ! { command -v gh >/dev/null && gh auth status -h github.com >/dev/null 2>&1; }; then
   next+=("gh auth login -h github.com -p https -w")
 fi
