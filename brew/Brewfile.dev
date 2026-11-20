@@ -5,6 +5,7 @@
 tap "docker/tap", trusted: true
 
 brew "actionlint"
+brew "bats-core"
 brew "shellcheck"
 brew "docker"
 brew "libpq", link: true

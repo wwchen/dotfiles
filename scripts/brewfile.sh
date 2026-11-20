@@ -34,7 +34,7 @@ brewfile_pending() {  # brewfile_pending FILE -> names of entries brew says need
   out="$(brew bundle check --no-upgrade --verbose --file="$1" 2>&1)" && return 0
   while IFS= read -r name; do
     if grep -qF " $name needs to be " <<<"$out"; then echo "$name"; found=1; fi
-  done < <(brewfile_entries "$1")
+  done < <(brewfile_entries "$1" | awk '!seen[$0]++')   # each name once, even if listed twice
   (( found )) && return 0
   echo "$out" >&2
   return 2
