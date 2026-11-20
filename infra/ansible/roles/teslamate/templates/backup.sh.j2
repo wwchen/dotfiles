@@ -1,0 +1,26 @@
+#!/bin/bash
+# Managed by Ansible. Nightly pg_dump of TeslaMate to the USB drive, pruned after
+# {{ teslamate_backup_keep_days }} days. Pings healthchecks.io on success, /fail on failure.
+set -euo pipefail
+
+MOUNT={{ teslamate_backup_mount | quote }}
+DIR={{ teslamate_backup_dir | quote }}
+HC={{ secrets.teslamate.healthcheck_url | default('') | quote }}
+COMPOSE=(docker compose --project-directory {{ teslamate_dir | quote }})
+
+ping() { [[ -z "$HC" ]] || curl -fsS -m 10 --retry 3 "$HC$1" >/dev/null || true; }
+fail() { echo "$(date -Is) FAILED: $*" >&2; ping /fail; exit 1; }
+trap 'fail "line $LINENO"' ERR
+
+findmnt --mountpoint "$MOUNT" >/dev/null || fail "$MOUNT is not mounted"
+mkdir -p "$DIR"
+out="$DIR/teslamate-$(date +%F).dump"
+
+# Custom format (-Fc) is compressed and restores with pg_restore.
+"${COMPOSE[@]}" exec -T database pg_dump -U {{ teslamate_db_user }} -Fc {{ teslamate_db_name }} > "$out.partial"
+[[ -s "$out.partial" ]] || fail "empty dump"
+mv "$out.partial" "$out"
+
+find "$DIR" -maxdepth 1 -name 'teslamate-*.dump' -mtime +{{ teslamate_backup_keep_days }} -delete
+echo "$(date -Is) backed up to $out ($(du -h "$out" | cut -f1))"
+ping ""

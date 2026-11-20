@@ -1,0 +1,28 @@
+#!/bin/bash
+# Managed by Ansible. Restore TeslaMate from a backup:
+#   ./restore.sh /mnt/usb1/rpi-backup/teslamate/teslamate-2026-11-20.dump   (new, pg_dump -Fc)
+#   ./restore.sh /mnt/usb1/rpi-backup/teslamate/teslamate_pgdump-2026-11-20.bak   (old, plain SQL)
+# https://docs.teslamate.org/docs/maintenance/backup_restore/
+set -euo pipefail
+file="${1:?usage: restore.sh <backup file>}"
+[[ -s "$file" ]] || { echo "no such backup: $file" >&2; exit 1; }
+cd {{ teslamate_dir | quote }}
+
+read -r -p "This replaces the current TeslaMate database with $file. Continue? [y/N] " ans
+[[ "$ans" =~ ^[Yy]$ ]] || exit 1
+
+docker compose stop teslamate
+docker compose exec -T database psql -U {{ teslamate_db_user }} {{ teslamate_db_name }} <<'SQL'
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+CREATE EXTENSION cube WITH SCHEMA public;
+CREATE EXTENSION earthdistance WITH SCHEMA public;
+SQL
+
+if head -c 5 "$file" | grep -q PGDMP; then
+  docker compose exec -T database pg_restore -U {{ teslamate_db_user }} -d {{ teslamate_db_name }} --no-owner < "$file"
+else
+  docker compose exec -T database psql -U {{ teslamate_db_user }} -d {{ teslamate_db_name }} < "$file"
+fi
+docker compose start teslamate
+echo "Restored from $file"

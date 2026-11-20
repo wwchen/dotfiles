@@ -23,3 +23,18 @@ steps:
     run: gh auth login
     tty: true
     hint: run `gh auth login`
+
+  # --- remote infra (infra/): only on Macs that answered yes to `infra` at init ---
+  - name: sops/age key
+    if: infra
+    check: test -f "$HOME/.config/sops/age/keys.txt"
+    hint: >-
+      restore it from your password manager (it decrypts secrets/infra.sops.yaml):
+      mkdir -p ~/.config/sops/age && pbpaste > ~/.config/sops/age/keys.txt && chmod 600 ~/.config/sops/age/keys.txt
+
+  - name: Ansible collections
+    if: infra
+    # Into ~/.ansible so ansible-lint (separate Python env) sees them too.
+    check: test -d "$HOME/.ansible/collections/ansible_collections/community/sops"
+    run: ansible-galaxy collection install -r "$REPO/infra/ansible/requirements.yml" -p "$HOME/.ansible/collections" --force
+    ask: false

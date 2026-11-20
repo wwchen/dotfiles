@@ -1,0 +1,92 @@
+# Managed by Ansible (infra/ansible/roles/teslamate). Local edits are overwritten.
+x-db-env: &db-env
+  DATABASE_USER: ${DATABASE_USER}
+  DATABASE_PASS: ${DATABASE_PASS}
+  DATABASE_NAME: ${DATABASE_NAME}
+  DATABASE_HOST: ${DATABASE_HOST}
+
+services:
+  teslamate:
+    image: teslamate/teslamate:{{ teslamate_version }}
+    restart: always
+    environment:
+      <<: *db-env
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      MQTT_HOST: ${MQTT_HOST}
+      TZ: ${TZ}
+    ports:
+      - "{{ teslamate_bind_address }}:4000:4000"
+    volumes:
+      - ./import:/opt/app/import
+    cap_drop:
+      - all
+
+  database:
+    image: {{ teslamate_postgres_image }}
+    restart: always
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASS}
+      POSTGRES_DB: ${DATABASE_NAME}
+    volumes:
+      - teslamate-db:/var/lib/postgresql
+
+  grafana:
+    image: teslamate/grafana:{{ teslamate_version }}
+    restart: always
+    environment:
+      <<: *db-env
+      GF_AUTH_ANONYMOUS_ENABLED: "{{ teslamate_grafana_anonymous | lower }}"
+{% if teslamate_grafana_root_url %}
+      GF_SERVER_ROOT_URL: {{ teslamate_grafana_root_url }}
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+{% endif %}
+    ports:
+      - "{{ teslamate_bind_address }}:3000:3000"
+    volumes:
+      - teslamate-grafana-data:/var/lib/grafana
+      - ./Teslamate-CustomGrafanaDashboards/customdashboards.yml:/etc/grafana/provisioning/dashboards/customdashboards.yml
+      - ./Teslamate-CustomGrafanaDashboards/dashboards:/TeslamateCustomDashboards
+
+  mosquitto:
+    image: {{ teslamate_mosquitto_image }}
+    restart: always
+    command: mosquitto -c /mosquitto-no-auth.conf
+    volumes:
+      - mosquitto-conf:/mosquitto/config
+      - mosquitto-data:/mosquitto/data
+{% if teslamate_api_enabled %}
+
+  teslamateapi:
+    image: {{ teslamate_api_image }}
+    restart: always
+    environment:
+      <<: *db-env
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      MQTT_HOST: ${MQTT_HOST}
+      TZ: ${TZ}
+      API_TOKEN: ${API_TOKEN}
+    ports:
+      - "{{ teslamate_bind_address }}:8080:8080"
+    volumes:
+      - teslamateapi-data:/opt/app/data
+    depends_on: [database, teslamate, mosquitto]
+{% endif %}
+{% if teslamate_cloudflared_token %}
+
+  cloudflared:
+    image: {{ teslamate_cloudflared_image }}
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+{% endif %}
+
+volumes:
+  teslamate-db:
+  teslamate-grafana-data:
+  mosquitto-conf:
+  mosquitto-data:
+{% if teslamate_api_enabled %}
+  teslamateapi-data:
+{% endif %}

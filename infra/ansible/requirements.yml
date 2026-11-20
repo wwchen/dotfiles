@@ -1,0 +1,6 @@
+# The Homebrew `ansible` package already bundles these; this pins them for other installs.
+collections:
+  - name: community.general
+  - name: community.docker
+  - name: community.sops
+  - name: ansible.posix

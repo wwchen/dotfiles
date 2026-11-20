@@ -2,6 +2,7 @@
 {{- $machine := promptChoiceOnce . "machine" "Machine type" (list "personal" "work") "personal" -}}
 {{- $email := promptStringOnce . "email" "Git email for this machine" "github@iamchen.com" -}}
 {{- $dev := promptBoolOnce . "dev" "Install dev tools (brew/Brewfile.dev)" true -}}
+{{- $infra := promptBoolOnce . "infra" "Manage remote infra from this Mac (sops, Ansible, OpenTofu)" true -}}
 
 sourceDir = {{ .chezmoi.workingTree | quote }}
 
@@ -10,6 +11,7 @@ sourceDir = {{ .chezmoi.workingTree | quote }}
     machine = {{ $machine | quote }}
     email = {{ $email | quote }}
     dev = {{ $dev }}
+    infra = {{ $infra }}
 
 [diff]
     exclude = ["scripts"]

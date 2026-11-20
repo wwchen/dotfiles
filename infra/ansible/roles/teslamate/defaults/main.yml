@@ -1,0 +1,31 @@
+---
+teslamate_user: "{{ ansible_user }}"
+teslamate_dir: "/home/{{ teslamate_user }}/teslamate"
+
+# Pinned images. Bump deliberately: https://docs.teslamate.org/docs/upgrading
+teslamate_version: "4.5.0"
+teslamate_postgres_image: postgres:18-trixie
+teslamate_mosquitto_image: eclipse-mosquitto:2
+teslamate_cloudflared_image: cloudflare/cloudflared:2026.11.1
+teslamate_api_enabled: false
+teslamate_api_image: tobiasehlert/teslamateapi:1.25.0
+
+teslamate_tz: America/New_York
+teslamate_bind_address: 127.0.0.1
+teslamate_grafana_root_url: ""
+# Grafana without a login. Only sensible when Cloudflare Access sits in front of it.
+teslamate_grafana_anonymous: false
+teslamate_db_user: teslamate
+teslamate_db_name: teslamate
+
+teslamate_custom_dashboards_repo: https://github.com/jheredianet/Teslamate-CustomGrafanaDashboards.git
+teslamate_custom_dashboards_version: main
+
+# Tunnel token comes from OpenTofu (infra/cloudflare) via `just pi-apply`. Empty = no cloudflared.
+teslamate_cloudflared_token: >-
+  {{ (lookup('ansible.builtin.env', 'CLOUDFLARE_TUNNEL_TOKENS') | default('{}', true) | from_json).get(inventory_hostname, '') }}
+
+teslamate_backup_mount: /mnt/usb1
+teslamate_backup_dir: "{{ teslamate_backup_mount }}/rpi-backup/teslamate"
+teslamate_backup_keep_days: 14
+teslamate_backup_hour: 3

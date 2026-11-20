@@ -1,0 +1,27 @@
+---
+- name: Load secrets
+  hosts: all
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: Decrypt secrets/infra.sops.yaml into `secrets`
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../../secrets/infra.sops.yaml"
+        name: secrets
+
+- name: Base system
+  hosts: pis
+  become: true
+  roles:
+    - role: base
+      tags: [base]
+    - role: docker
+      tags: [docker]
+    - role: tailscale
+      tags: [tailscale]
+
+- name: TeslaMate
+  hosts: teslamate
+  roles:
+    - role: teslamate
+      tags: [teslamate]

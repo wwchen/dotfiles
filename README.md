@@ -7,6 +7,8 @@ One repo for setting up my Macs and managing my remote boxes.
 | Dotfiles (zsh, git, starship) | [chezmoi](https://chezmoi.io) | `home/` |
 | Mac apps & CLIs | Homebrew Bundle (+ `mas`) | `brew/Brewfile`, `brew/Brewfile.{personal,work}`, opt-in `brew/Brewfile.dev` |
 | iTerm2 | Dynamic Profile + `defaults` | `home/Library/Application Support/iTerm2/`, `home/run_onchange_after_20-iterm2.sh.tmpl` |
+| Raspberry Pis (TeslaMate, Tailscale, backups) | Ansible | `infra/ansible/` |
+| Secrets | sops + age | `secrets/infra.sops.yaml` |
 | Old configs (irssi, screen, 2013 bootstrap…) | — | `archive/` (not deployed) |
 
 ## New Mac
@@ -18,7 +20,7 @@ git clone https://github.com/wwchen/dotfiles ~/code/wwchen/dotfiles
 ```
 
 `bootstrap.sh` only gets chezmoi running: Command Line Tools → Homebrew → chezmoi (asks machine
-type, email, dev tools) → shows the dotfile diff → applies. Re-running it is safe.
+type, email, dev tools, infra) → shows the dotfile diff → applies. Re-running it is safe.
 
 Everything else is data: setup steps live in [`home/.chezmoidata/steps.yaml`](home/.chezmoidata/steps.yaml)
 (name, a `check` command, and a `run` command or a `hint`). Every `just apply` runs the steps whose
@@ -43,3 +45,21 @@ diff shows what you actually changed.
 
 Edit dotfiles in `home/` (or `chezmoi edit ~/.zshrc`), never in `~` directly.
 Per-machine untracked overrides: `~/.zshrc.local`, `~/.gitconfig.local`.
+
+## Remote infra
+
+```bash
+just secrets-init     # once: create secrets/infra.sops.yaml from the example
+just secrets-edit     # fill in Tailscale/TeslaMate secrets
+
+just pi-check pi-tx   # Ansible dry run with diff
+just pi-apply pi-tx
+```
+
+- TeslaMate web UIs bind to `127.0.0.1` on the Pi (reach them with `ssh -L` for now).
+- Nightly `pg_dump -Fc` to the USB drive, 14-day retention, healthchecks.io ping on success.
+
+## Requirements
+
+The age private key at `~/.config/sops/age/keys.txt` (keep a copy in your password manager).
+Everything else comes from the Brewfile.
