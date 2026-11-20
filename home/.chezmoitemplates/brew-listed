@@ -1,0 +1,11 @@
+{{- /* Entry lines of this Mac's Brewfiles, to gate app setup on: contains "cask \"iterm2\"" */ -}}
+{{- range (includeTemplate "brewfiles" . | trim | splitList "\n") }}
+{{-   if stat . }}
+{{-     range (include . | splitList "\n") }}
+{{-       $line := trim . }}
+{{-       if regexMatch "^(tap|brew|cask|mas|npm) \"" $line }}
+{{ $line }}
+{{-       end }}
+{{-     end }}
+{{-   end }}
+{{- end }}

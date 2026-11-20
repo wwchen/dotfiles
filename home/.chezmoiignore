@@ -2,3 +2,6 @@ README.md
 {{- if ne .chezmoi.os "darwin" }}
 Library
 {{- end }}
+{{- if not (contains "cask \"iterm2\"" (includeTemplate "brew-listed" .)) }}
+Library/Application Support/iTerm2
+{{- end }}

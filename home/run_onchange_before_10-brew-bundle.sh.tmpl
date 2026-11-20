@@ -1,0 +1,46 @@
+{{- $files := includeTemplate "brewfiles" . | trim | splitList "\n" -}}
+#!/bin/bash
+# brew bundle for this Mac's Brewfiles. Reruns when one changes:
+{{- range $files }}
+# {{ base . }}: {{ if stat . }}{{ include . | sha256sum }}{{ end }}
+{{- end }}
+set -uo pipefail
+{{ if ne .chezmoi.os "darwin" -}}
+exit 0
+{{- end }}
+
+eval "$(/opt/homebrew/bin/brew shellenv bash)"
+# shellcheck source=/dev/null
+. {{ joinPath .chezmoi.workingTree "scripts/brewfile.sh" | quote }}
+files=(
+{{- range $files }}
+  {{ . | quote }}
+{{- end }}
+)
+# Take over apps installed by hand instead of failing.
+export HOMEBREW_CASK_OPTS="--adopt"
+
+# Plan mode (just apply): list what would be installed.
+if [[ -n "${DOTFILES_PLAN:-}" ]]; then
+  err="$(mktemp)"; trap 'rm -f "$err"' EXIT
+  for f in "${files[@]}"; do
+    [[ -f "$f" ]] || continue
+    status=0
+    pending="$(brewfile_pending "$f" 2>"$err" | paste -sd ',' - | sed 's/,/, /g')" || status=$?
+    if (( status != 0 )); then
+      echo "brew (${f##*/}): check failed: $(grep -m1 . "$err")"
+    elif [[ -n "$pending" ]]; then
+      echo "brew install (${f##*/}): $pending"
+    fi
+  done
+  exit 0
+fi
+
+for f in "${files[@]}"; do
+  [[ -f "$f" ]] || continue
+  brew bundle check --no-upgrade --file="$f" >/dev/null 2>&1 && continue
+  echo "brew bundle --file=$f"
+  brew bundle install --no-upgrade --file="$f" ||
+    echo "brew: some of ${f##*/} didn't install. Fix that (App Store apps need you signed in), then: brew bundle --file='$f'" >&2
+done
+exit 0

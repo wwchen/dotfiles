@@ -1,0 +1,2 @@
+{{- /* This Mac's Brewfiles, in install order. */ -}}
+{{ joinPath .chezmoi.workingTree "brew/Brewfile.core" }}

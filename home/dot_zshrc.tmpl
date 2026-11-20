@@ -1,0 +1,31 @@
+# Managed by chezmoi: edit home/dot_zshrc.tmpl, then `just apply`. Local additions: ~/.zshrc.local.
+{{- $brew := includeTemplate "brew-listed" . }}
+
+{{ if eq .chezmoi.os "darwin" -}}
+# For non-login shells; login shells get it from ~/.zprofile.
+[[ -z "$HOMEBREW_PREFIX" && -x /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv zsh)"
+{{- end }}
+
+{{ if contains "brew \"zsh-autosuggestions\"" $brew -}}
+# zsh-autosuggestions
+if [[ -f "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]]; then
+  source "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+  ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+  bindkey '^?^I' autosuggest-accept     # <opt-tab>
+fi
+{{- end }}
+
+alias reload='source ~/.zshrc'
+alias zshrc='chezmoi edit --apply ~/.zshrc && reload'
+
+setopt no_share_history
+setopt no_nomatch
+setopt no_extended_glob
+setopt no_glob
+
+[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
+
+{{ if contains "brew \"starship\"" $brew -}}
+# starship
+command -v starship >/dev/null && eval "$(starship init zsh)"
+{{ end -}}
