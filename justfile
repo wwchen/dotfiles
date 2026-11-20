@@ -9,11 +9,6 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 default:
     @if command -v fzf >/dev/null && [ -t 0 ]; then just --choose; else just --list --unsorted; fi
 
-# Bootstrap: prerequisites → core apps → setup (GitHub login, clone); asks at each phase
-[group('mac')]
-bootstrap *args:
-    ./bootstrap.sh {{ args }}
-
 # Show what `apply` would change in your home folder (uses this checkout)
 [group('mac')]
 diff: _init
@@ -37,9 +32,14 @@ _init:
 # Lint shell scripts
 [group('checks')]
 lint:
-    shellcheck bootstrap.sh scripts/*
+    shellcheck scripts/*
 
 # Run the test suite (tests/*.bats)
 [group('checks')]
 test:
-    bats tests/
+    #!/usr/bin/env bash
+    set -euo pipefail
+    shopt -s nullglob
+    files=(tests/*.bats)
+    if (( ${#files[@]} == 0 )); then echo "No tests yet (tests/*.bats)."; exit 0; fi
+    bats "${files[@]}"
