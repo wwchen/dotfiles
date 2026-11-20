@@ -18,7 +18,7 @@ On a new Mac, run these one at a time:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # What the rest of setup needs
-brew install chezmoi just gh
+brew install chezmoi just gh gum
 
 # Log in to GitHub, then clone
 gh auth login

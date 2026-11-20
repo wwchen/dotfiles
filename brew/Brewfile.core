@@ -4,6 +4,7 @@
 brew "chezmoi"
 brew "fzf"
 brew "gh"
+brew "gum"
 brew "jq"
 brew "just"
 brew "mas"

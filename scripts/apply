@@ -13,6 +13,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 YES=0
 [[ "${1:-}" == "-y" || "${1:-}" == "--yes" ]] && YES=1
 cz=(chezmoi --source "$ROOT")
+# shellcheck source=scripts/ui.sh
+. "$ROOT/scripts/ui.sh"
 
 bold=$'\e[1m'; dim=$'\e[2m'; reset=$'\e[0m'
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
@@ -58,15 +60,15 @@ fi
 
 echo
 if (( ! YES )); then
-  if ! { : </dev/tty; } 2>/dev/null; then
+  if ! ui_tty; then
     echo "No terminal to confirm in; run 'just apply -y' to apply without asking." >&2
     exit 1
   fi
   while true; do
-    read -r -p "Apply? [y/N, d = show file diff] " ans </dev/tty || ans=n
+    ans="$(ui_choose "Apply these changes?" "Cancel" "Apply" "Show file diff" "Cancel")" || exit $?
     case "$ans" in
-      y|Y|yes) break ;;
-      d|D) "${cz[@]}" diff --exclude scripts ;;
+      Apply) break ;;
+      "Show file diff") "${cz[@]}" diff --exclude scripts ;;
       *) echo "Nothing changed."; exit 0 ;;
     esac
   done

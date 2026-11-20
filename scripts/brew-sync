@@ -8,6 +8,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/brewfile.sh
 . "$ROOT/scripts/brewfile.sh"
+# shellcheck source=scripts/ui.sh
+. "$ROOT/scripts/ui.sh"
 BREW_DIR="$ROOT/brew"
 CHECK_ONLY=0
 [[ "${1:-}" == "--check" ]] && CHECK_ONLY=1
@@ -90,24 +92,24 @@ uninstall() {
   esac
 }
 
+(( n_untracked + n_missing == 0 )) || ui_tty ||
+  { echo "brew-sync: no terminal to ask in; 'scripts/brew-sync --check' only reports" >&2; exit 1; }
+
 if [[ $n_untracked -gt 0 ]]; then
   echo
   echo "== Installed but not in a Brewfile"
-  menu="   add to:"
-  for i in "${!groups[@]}"; do menu+="  [$((i + 1))] ${groups[$i]}"; done
-  echo "$menu"
-  echo "   or:      [i] ignore forever  [u] uninstall  [s] skip"
+  options=()
+  for g in "${groups[@]}"; do options+=("add to Brewfile.$g"); done
+  options+=("ignore forever" "uninstall" "skip")
   while IFS= read -r key; do
-    read -r -p "  $key ? [1-${#groups[@]}/i/u/S] " ans </dev/tty
+    ans="$(ui_choose "$key" "skip" "${options[@]}")" || exit $?
     case "$ans" in
-      [1-9]|[1-9][0-9])
-        if (( ans >= 1 && ans <= ${#groups[@]} )); then
-          g="${groups[$((ans - 1))]}"
-          brewfile_line "$key" "$tmp/installed.lines" >> "$(file_of "$g")"; echo "    → Brewfile.$g"
-        fi ;;
-      i|I) echo "$key" >> "$IGNORE"; echo "    → ignore" ;;
-      u|U) uninstall "$key" </dev/null || echo "    uninstall failed (still needed by something?); skipping" ;;
-      *)   ;;
+      "add to Brewfile."*)
+        g="${ans#add to Brewfile.}"
+        brewfile_line "$key" "$tmp/installed.lines" >> "$(file_of "$g")"; echo "  $key → Brewfile.$g" ;;
+      "ignore forever") echo "$key" >> "$IGNORE"; echo "  $key → ignore" ;;
+      uninstall) uninstall "$key" </dev/null || echo "  $key: uninstall failed (still needed by something?); skipping" ;;
+      *) ;;
     esac
   done < "$tmp/untracked"
 fi
@@ -115,15 +117,15 @@ fi
 if [[ $n_missing -gt 0 ]]; then
   echo
   echo "== In a Brewfile but not installed"
-  echo "   [i] install now  [r] remove from its Brewfile  [s] skip"
   while IFS= read -r key; do
-    read -r -p "  $key ? [i/r/S] " ans </dev/tty
+    ans="$(ui_choose "$key" "skip" "install now" "remove from its Brewfile" "skip")" || exit $?
     case "$ans" in
-      i|I) existing "${expected[@]}"
-           for f in ${FILES[@]+"${FILES[@]}"}; do brewfile_line "$key" "$f"; done | head -1 > "$tmp/one"
-           brew bundle install --no-upgrade --file="$tmp/one" </dev/null || echo "    install failed; skipping" ;;
-      r|R) remove_key "$key"; echo "    → removed" ;;
-      *)   ;;
+      "install now")
+        existing "${expected[@]}"
+        for f in ${FILES[@]+"${FILES[@]}"}; do brewfile_line "$key" "$f"; done | head -1 > "$tmp/one"
+        brew bundle install --no-upgrade --file="$tmp/one" </dev/null || echo "  $key: install failed; skipping" ;;
+      "remove from its Brewfile") remove_key "$key"; echo "  $key → removed" ;;
+      *) ;;
     esac
   done < "$tmp/missing"
 fi

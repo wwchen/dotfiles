@@ -16,6 +16,8 @@ CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/iterm-theme"
 mkdir -p "$CACHE/schemes"
 
 die() { echo "iterm-theme: $*" >&2; exit 1; }
+# shellcheck source=scripts/ui.sh
+. "$ROOT/scripts/ui.sh"
 
 list_schemes() {  # cached for a day
   local list="$CACHE/schemes.txt"
@@ -91,8 +93,8 @@ fi
 
 if [[ -z "$mode" ]]; then
   if [[ -t 0 ]]; then
-    read -r -p "Use \"$name\" for [b]oth, [d]ark mode, or [l]ight mode? [B/d/l] " ans
-    case "$ans" in d|D) mode=dark ;; l|L) mode=light ;; *) mode=both ;; esac
+    ans="$(ui_choose "Use \"$name\" for" "both modes" "both modes" "dark mode" "light mode")" || exit $?
+    mode="${ans%% *}"   # both, dark or light
   else
     mode=both
   fi
@@ -132,8 +134,7 @@ if command -v chezmoi >/dev/null && [[ -f "$HOME/.config/chezmoi/chezmoi.toml" ]
   chezmoi --source "$ROOT" apply "$TARGET"
   echo "Loaded into iTerm2. Open a new tab with the \"wc\" profile to see it."
   if [[ -t 0 ]]; then
-    read -r -p "Keep it? [Y/n] " keep
-    if [[ "$keep" =~ ^[Nn] ]]; then
+    if ! ui_confirm "Keep it?"; then
       cp "$backup" "$PROFILE"
       chezmoi --source "$ROOT" apply "$TARGET"
       echo "Reverted."

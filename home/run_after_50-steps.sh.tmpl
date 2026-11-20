@@ -3,16 +3,18 @@
 set -uo pipefail
 
 export REPO={{ .chezmoi.workingTree | quote }}
+# shellcheck source=/dev/null
+. "$REPO/scripts/ui.sh"
 {{ if eq .chezmoi.os "darwin" -}}
 if [[ -x /opt/homebrew/bin/brew ]]; then eval "$(/opt/homebrew/bin/brew shellenv bash)"; fi
 {{- end }}
 
-has_tty() { { : </dev/tty; } 2>/dev/null; }
+has_tty() { ui_tty; }
 yes_to_all() { [[ -n "${DOTFILES_YES:-}" ]]; }   # `just apply` already confirmed
 dec() { printf %s "$1" | base64 --decode; }
 
 step() {  # step <name> <check> <run> <hint> <ask> <tty>   (text fields base64-encoded)
-  local name check run hint ask="$5" tty="$6" ans
+  local name check run hint ask="$5" tty="$6"
   name="$(dec "$1")"; check="$(dec "$2")"; run="$(dec "$3")"; hint="$(dec "$4")"
   if bash -c "$check" >/dev/null 2>&1 </dev/null; then
     [[ -n "${DOTFILES_PLAN:-}" ]] || echo "✓ $name"
@@ -31,8 +33,7 @@ step() {  # step <name> <check> <run> <hint> <ask> <tty>   (text fields base64-e
     return
   fi
   if [[ "$ask" == true ]] && ! yes_to_all; then
-    read -r -p "→ $name? [Y/n] " ans </dev/tty || ans=n
-    if [[ "$ans" =~ ^[Nn] ]]; then
+    if ! ui_confirm "→ $name?"; then
       echo "  skipped (asked again on the next apply)"
       return
     fi
