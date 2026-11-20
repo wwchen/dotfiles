@@ -17,9 +17,12 @@ git clone https://github.com/wwchen/dotfiles ~/code/wwchen/dotfiles
 ~/code/wwchen/dotfiles/bootstrap.sh
 ```
 
-`bootstrap.sh` asks before each step: Homebrew → chezmoi → (asks machine type + email) →
-shows the dotfile diff → applies, which installs the Brewfiles, oh-my-zsh and the iTerm2 profile.
-Re-running it is safe.
+`bootstrap.sh` only gets chezmoi running: Command Line Tools → Homebrew → chezmoi (asks machine
+type, email, dev tools) → shows the dotfile diff → applies. Re-running it is safe.
+
+Everything else is data: setup steps live in [`home/.chezmoidata/steps.yaml`](home/.chezmoidata/steps.yaml)
+(name, a `check` command, and a `run` command or a `hint`). Every `just apply` runs the steps whose
+check fails, asking first unless `ask: false`; add a step there instead of editing a script.
 
 ## Day to day
 

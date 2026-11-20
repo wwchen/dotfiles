@@ -1,0 +1,25 @@
+# Setup steps, run in order on every `chezmoi apply` / `just apply`
+# (by home/run_after_50-steps.sh.tmpl; `just apply-dry` shows them without running).
+#
+# Each step:
+#   name   what it is
+#   check  shell command; exit 0 means "already done" and the step is skipped
+#   run    shell command that does it (omit for steps a human has to do: then `hint` is shown)
+#   hint   shown when the step isn't done and wasn't run
+#   ask    prompt before running (default true). Without a terminal, asking steps are skipped.
+#   tty    `run` needs a terminal (e.g. a login flow)
+#   os     only on this OS (darwin, linux)
+#   if     only when this chezmoi data key is true (machine answers from `chezmoi init`)
+#
+# Commands run under bash with Homebrew on PATH. $REPO is this checkout.
+steps:
+  - name: oh-my-zsh
+    check: test -d "$HOME/.oh-my-zsh"
+    run: RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    ask: false
+
+  - name: GitHub CLI login
+    check: gh auth status
+    run: gh auth login
+    tty: true
+    hint: run `gh auth login`

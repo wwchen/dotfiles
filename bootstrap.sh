@@ -1,6 +1,9 @@
 #!/bin/bash
 # Set up a Mac from scratch (or re-check an existing one). Safe to re-run.
 #
+# This only gets chezmoi running (Command Line Tools, Homebrew, chezmoi) and applies.
+# Everything else is a step in home/.chezmoidata/steps.yaml, run by every `just apply`.
+#
 #   ./bootstrap.sh       ask before each step
 #   ./bootstrap.sh -y    do every step without asking
 #
@@ -64,7 +67,7 @@ else
   brew install chezmoi
 fi
 
-# 4. Dotfiles (+ Brewfile, oh-my-zsh, iTerm2 via chezmoi run scripts)
+# 4. Dotfiles, Brewfile apps, iTerm2 and the steps in home/.chezmoidata/steps.yaml
 step "Dotfiles, apps and iTerm2 (chezmoi)"
 CZ=(chezmoi --source "$ROOT")   # always this checkout, even if chezmoi was set up from another
 if [[ ! -f "$HOME/.config/chezmoi/chezmoi.toml" ]]; then
@@ -84,21 +87,10 @@ else
   while IFS= read -r f; do echo "    ~/$f"; done <<<"$changed"
   if ask "Show the full diff"; then "${CZ[@]}" diff --exclude scripts; fi
 fi
-if ask "Apply dotfiles and install Brewfile apps (brew bundle asks again before installing)"; then
+if ask "Apply dotfiles, install Brewfile apps and run the setup steps (each asks again)"; then
   "${CZ[@]}" apply
   ok "applied"
 fi
-
-# 5. Accounts that need a human
-step "Sign-ins"
-if command -v gh >/dev/null && ! gh auth status >/dev/null 2>&1; then
-  ask "Log in to GitHub CLI" && gh auth login
-else
-  ok "GitHub CLI logged in (or not installed yet)"
-fi
-# mas can't tell whether you're signed in any more ('mas account' was removed), so just remind.
-echo "  App Store apps in the Brewfile install only when you're signed in to the App Store app."
-echo "  If any were skipped, sign in and run 'just apply' (it retries only what's missing)."
 
 echo
 ok "Done. Day-to-day: 'just' lists the commands."

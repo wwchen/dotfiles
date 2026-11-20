@@ -1,9 +1,0 @@
-#!/bin/bash
-# Installs oh-my-zsh once. ~/.zshrc itself is managed by chezmoi, so keep it.
-set -euo pipefail
-if [[ -d "$HOME/.oh-my-zsh" ]]; then
-  exit 0
-fi
-echo "Installing oh-my-zsh"
-RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
-  sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
