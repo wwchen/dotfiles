@@ -5,7 +5,7 @@ One repo for setting up my Macs and managing my remote boxes.
 | What | Tool | Where |
 |---|---|---|
 | Dotfiles (zsh, git, starship) | [chezmoi](https://chezmoi.io) | `home/` |
-| Mac apps & CLIs | Homebrew Bundle (+ `mas`) | `brew/Brewfile.core` (bootstrap), `.apps`, opt-in `.dev`, `.personal` / `.work` |
+| Mac apps & CLIs | Homebrew Bundle (+ `mas`) | `brew/Brewfile.core`, `.apps`, opt-in `.dev`, `.personal` / `.work` |
 | Old configs (irssi, screen, 2013 bootstrap…) | — | `archive/` (not deployed) |
 
 ## Getting started

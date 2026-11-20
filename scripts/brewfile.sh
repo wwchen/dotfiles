@@ -1,8 +1,6 @@
 # shellcheck shell=bash
 # Brewfile helpers, sourced (not run) by scripts/brew-sync and the brew step
-# (home/run_after_10-brew-bundle.sh.tmpl). bootstrap.sh keeps its own copy of
-# brewfile_entries and brewfile_pending, since it runs before this repo is cloned;
-# keep the two in step.
+# (home/run_after_10-brew-bundle.sh.tmpl).
 #
 # An entry is a `tap`, `brew`, `cask`, `mas` or `npm` line; its key is "<type> <name>".
 # Names are matched literally (logi-options+, libsigc++) and may contain spaces (App Store apps).
