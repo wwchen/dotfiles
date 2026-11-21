@@ -1,0 +1,23 @@
+# Dev tools, on Macs that answered yes to `dev` at `chezmoi init`.
+
+tap "docker/tap", trusted: true
+
+brew "actionlint"
+brew "bats-core"
+brew "shellcheck"
+brew "docker"
+brew "libpq", link: true
+brew "maven"
+brew "node"
+brew "openjdk@25"
+brew "ruff"
+brew "tilt"
+cask "claude-code"
+cask "docker-desktop"
+cask "docker/tap/sbx", trusted: true
+cask "cursor"
+cask "sublime-text"
+cask "visual-studio-code"
+npm "neon"
+npm "pnpm"
+npm "vercel"

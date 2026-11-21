@@ -1,2 +1,7 @@
 {{- /* This Mac's Brewfiles, in install order. */ -}}
 {{ joinPath .chezmoi.workingTree "brew/Brewfile.core" }}
+{{ joinPath .chezmoi.workingTree "brew/Brewfile.apps" }}
+{{- if get . "dev" }}
+{{ joinPath .chezmoi.workingTree "brew/Brewfile.dev" }}
+{{- end }}
+{{ joinPath .chezmoi.workingTree (print "brew/Brewfile." .machine) }}

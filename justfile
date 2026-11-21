@@ -29,6 +29,16 @@ _init:
       exit 1
     fi
 
+# Walk through Brewfile drift and fix it
+[group('mac')]
+brew-sync:
+    scripts/brew-sync
+
+# Report Brewfile drift (exit 1 if any)
+[group('mac')]
+brew-check:
+    scripts/brew-sync --check
+
 # Save iTerm2's "Default" profile into the repo
 [group('mac')]
 iterm-export profile="Default":

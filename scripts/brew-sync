@@ -1,0 +1,133 @@
+#!/bin/bash
+# Reconcile what Homebrew has installed with the Brewfiles.
+#   scripts/brew-sync          walk through the drift, editing Brewfiles as you answer
+#   scripts/brew-sync --check  only report it; exit 1 if there is any
+# Bash 3.2 (macOS's own).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/brewfile.sh
+. "$ROOT/scripts/brewfile.sh"
+BREW_DIR="$ROOT/brew"
+CHECK_ONLY=0
+[[ "${1:-}" == "--check" ]] && CHECK_ONLY=1
+
+# This Mac's answers from `chezmoi init`.
+data() { chezmoi --source "$ROOT" execute-template "{{ get . \"$1\" }}" 2>/dev/null || true; }
+machine="$(data machine)"; [[ -n "$machine" ]] || machine=personal
+dev="$(data dev)"
+IGNORE="$BREW_DIR/ignore"
+touch "$BREW_DIR/Brewfile.$machine" "$IGNORE"
+
+# All groups, and the ones this Mac installs.
+groups=()
+for f in "$BREW_DIR"/Brewfile.*; do groups+=("${f##*/Brewfile.}"); done
+expected=(core apps)
+[[ "$dev" == true ]] && expected+=(dev)
+expected+=("$machine")
+# Tracked: all groups except other machine types' (so a work-only app installed here is offered).
+tracked=()
+for g in "${groups[@]}"; do
+  case "$g" in personal|work) [[ "$g" == "$machine" ]] || continue ;; esac
+  tracked+=("$g")
+done
+
+file_of() { echo "$BREW_DIR/Brewfile.$1"; }
+existing() {  # existing GROUP... -> sets FILES to those groups' Brewfiles that exist (paths may have spaces)
+  local g; FILES=()
+  for g in "$@"; do [[ -f "$(file_of "$g")" ]] && FILES+=("$(file_of "$g")"); done
+  return 0
+}
+keys_of() {  # keys_of GROUP... -> brewfile_keys of the groups' existing Brewfiles (none: no output)
+  existing "$@"
+  (( ${#FILES[@]} )) && brewfile_keys "${FILES[@]}"
+  return 0
+}
+
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+
+
+brew bundle dump --force --file="$tmp/installed" >/dev/null
+grep -E '^(tap|brew|cask|mas|npm) ' "$tmp/installed" > "$tmp/installed.lines" || true
+brewfile_keys "$tmp/installed.lines" > "$tmp/installed.keys"
+# Untracked: in no Brewfile (dev entries count even where dev is off).
+keys_of "${tracked[@]}" > "$tmp/tracked.keys"
+# Missing: this Mac's Brewfiles list it, but it isn't installed.
+keys_of "${expected[@]}" > "$tmp/expected.keys"
+# brew/ignore: "<type> <name>" per line, # comments.
+sed -nE '/^[[:space:]]*#/d; s/^[[:space:]]*([a-z]+)[[:space:]]+(.*[^[:space:]])[[:space:]]*$/\1 \2/p' "$IGNORE" | sort -u > "$tmp/ignore.keys"
+
+comm -23 "$tmp/installed.keys" "$tmp/tracked.keys" | comm -23 - "$tmp/ignore.keys" > "$tmp/untracked"
+# Dependencies count as installed (`brew bundle dump` lists only leaves).
+{ cat "$tmp/installed.keys"; brew list --formula -1 | sed 's/^/brew /'; } | sort -u > "$tmp/present.keys"
+comm -13 "$tmp/present.keys" "$tmp/expected.keys" > "$tmp/missing"
+
+n_untracked=$(wc -l < "$tmp/untracked" | tr -d ' ')
+n_missing=$(wc -l < "$tmp/missing" | tr -d ' ')
+echo "this Mac: ${expected[*]}   untracked: $n_untracked   missing: $n_missing"
+
+if (( CHECK_ONLY )); then
+  [[ $n_untracked -gt 0 ]] && { echo "== installed but not in a Brewfile"; sed 's/^/  /' "$tmp/untracked"; }
+  [[ $n_missing -gt 0 ]]   && { echo "== in a Brewfile but not installed"; sed 's/^/  /' "$tmp/missing"; }
+  (( n_untracked + n_missing == 0 ))
+  exit $?
+fi
+
+remove_key() {  # drop a key's line from whichever of this Mac's Brewfiles has it
+  local f
+  existing "${expected[@]}"
+  for f in ${FILES[@]+"${FILES[@]}"}; do brewfile_remove "$1" "$f"; done
+}
+
+uninstall() {
+  local type="${1%% *}" name="${1#* }"
+  case "$type" in
+    brew) brew uninstall "$name" ;;
+    cask) brew uninstall --cask "$name" ;;
+    tap)  brew untap "$name" ;;
+    npm)  npm uninstall -g "$name" ;;
+    mas)  echo "  remove App Store apps from Launchpad/Finder" ;;
+  esac
+}
+
+if [[ $n_untracked -gt 0 ]]; then
+  echo
+  echo "== Installed but not in a Brewfile"
+  menu="   add to:"
+  for i in "${!groups[@]}"; do menu+="  [$((i + 1))] ${groups[$i]}"; done
+  echo "$menu"
+  echo "   or:      [i] ignore forever  [u] uninstall  [s] skip"
+  while IFS= read -r key; do
+    read -r -p "  $key ? [1-${#groups[@]}/i/u/S] " ans </dev/tty
+    case "$ans" in
+      [1-9]|[1-9][0-9])
+        if (( ans >= 1 && ans <= ${#groups[@]} )); then
+          g="${groups[$((ans - 1))]}"
+          brewfile_line "$key" "$tmp/installed.lines" >> "$(file_of "$g")"; echo "    → Brewfile.$g"
+        fi ;;
+      i|I) echo "$key" >> "$IGNORE"; echo "    → ignore" ;;
+      u|U) uninstall "$key" </dev/null || echo "    uninstall failed (still needed by something?); skipping" ;;
+      *)   ;;
+    esac
+  done < "$tmp/untracked"
+fi
+
+if [[ $n_missing -gt 0 ]]; then
+  echo
+  echo "== In a Brewfile but not installed"
+  echo "   [i] install now  [r] remove from its Brewfile  [s] skip"
+  while IFS= read -r key; do
+    read -r -p "  $key ? [i/r/S] " ans </dev/tty
+    case "$ans" in
+      i|I) existing "${expected[@]}"
+           for f in ${FILES[@]+"${FILES[@]}"}; do brewfile_line "$key" "$f"; done | head -1 > "$tmp/one"
+           brew bundle install --no-upgrade --file="$tmp/one" </dev/null || echo "    install failed; skipping" ;;
+      r|R) remove_key "$key"; echo "    → removed" ;;
+      *)   ;;
+    esac
+  done < "$tmp/missing"
+fi
+
+echo
+git -C "$ROOT" --no-pager diff --stat -- brew/ || true
+echo "Review with 'git diff brew/' and commit when happy."

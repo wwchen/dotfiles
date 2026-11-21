@@ -33,12 +33,71 @@ EOF
   chmod +x "$BATS_TEST_TMPDIR/bin/brew"
 }
 
+@test "brewfile_keys: '<type> <name>' per entry, sorted and unique; comments and options ignored" {
+  run brewfile_keys "$BF"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf '%s\n' 'brew jq' 'brew libpq' 'cask iterm2' 'cask logi-options+' \
+    'mas Some Thing Pro' 'npm prettier' 'tap hashicorp/tap')" ]
+}
+
+@test "brewfile_keys: several files at once" {
+  printf 'cask "zoom"\nbrew "jq"\n' > "$BATS_TEST_TMPDIR/other"
+  run brewfile_keys "$BF" "$BATS_TEST_TMPDIR/other"
+  [[ "$output" == *"cask zoom"* ]]
+  [ "$(grep -c '^brew jq$' <<<"$output")" -eq 1 ]
+}
+
 @test "brewfile_entries: names in file order, indented lines included" {
   run brewfile_entries "$BF"
   [ "${lines[0]}" = "hashicorp/tap" ]
   [ "${lines[3]}" = "logi-options+" ]
   [ "${lines[4]}" = "iterm2" ]
   [ "${lines[5]}" = "Some Thing Pro" ]
+}
+
+@test "brewfile_line: the full line, options kept" {
+  run brewfile_line "brew libpq" "$BF"
+  [ "$output" = 'brew "libpq", link: true' ]
+  run brewfile_line "mas Some Thing Pro" "$BF"
+  [ "$output" = 'mas "Some Thing Pro", id: 123' ]
+}
+
+@test "brewfile_line: names are literal, not regexes" {
+  run brewfile_line "cask logi-options+" "$BF"
+  [ "$output" = 'cask "logi-options+"' ]
+  printf 'cask "logi-optionsss"\n' > "$BATS_TEST_TMPDIR/re"
+  run brewfile_line "cask logi-options+" "$BATS_TEST_TMPDIR/re"
+  [ -z "$output" ]
+}
+
+@test "brewfile_line: only the requested type matches" {
+  run brewfile_line "cask jq" "$BF"
+  [ -z "$output" ]
+}
+
+@test "brewfile_remove: drops exactly that entry and keeps everything else" {
+  before="$(wc -l < "$BF")"
+  brewfile_remove "cask logi-options+" "$BF"
+  ! grep -q 'logi-options' "$BF"
+  [ "$(wc -l < "$BF")" -eq $((before - 1)) ]
+  grep -q '^# a comment$' "$BF"
+}
+
+@test "brewfile_remove: names with spaces" {
+  brewfile_remove "mas Some Thing Pro" "$BF"
+  ! grep -q 'Some Thing Pro' "$BF"
+}
+
+@test "brewfile_remove: absent entry is a no-op" {
+  cp "$BF" "$BATS_TEST_TMPDIR/orig"
+  brewfile_remove "brew not-there" "$BF"
+  cmp -s "$BF" "$BATS_TEST_TMPDIR/orig"
+}
+
+@test "brewfile_remove: a prefix of another name is not removed with it" {
+  printf 'brew "jq"\nbrew "jqp"\n' > "$BATS_TEST_TMPDIR/p"
+  brewfile_remove "brew jq" "$BATS_TEST_TMPDIR/p"
+  [ "$(cat "$BATS_TEST_TMPDIR/p")" = 'brew "jqp"' ]
 }
 
 @test "brewfile_pending: nothing when brew bundle check passes" {

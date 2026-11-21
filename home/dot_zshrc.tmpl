@@ -29,6 +29,11 @@ setopt no_nomatch
 setopt no_extended_glob
 setopt no_glob
 
+{{ if contains "brew \"openjdk@25\"" $brew -}}
+# openjdk@25 is keg-only: not on PATH by default
+[[ -d "$HOMEBREW_PREFIX/opt/openjdk@25/bin" ]] && export PATH="$HOMEBREW_PREFIX/opt/openjdk@25/bin:$PATH"
+{{- end }}
+
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
 
 {{ if contains "brew \"starship\"" $brew -}}

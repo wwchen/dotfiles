@@ -5,6 +5,7 @@ One repo for setting up my Macs and managing my remote boxes.
 | What | Tool | Where |
 |---|---|---|
 | Core apps: CLI basics, 1Password, iTerm2, starship | Homebrew Bundle | `brew/Brewfile.core` |
+| More Mac apps & CLIs | Homebrew Bundle (+ `mas`) | `brew/Brewfile.apps`, opt-in `.dev`, `.personal` / `.work` |
 | Their setup: `.zshrc`, starship preset, iTerm2 profile | [chezmoi](https://chezmoi.io) | `home/` |
 | Dotfiles: `.gitconfig`, oh-my-zsh and other setup steps | chezmoi | `home/`, `home/.chezmoidata/steps.yaml` |
 | Old configs (irssi, screen, 2013 bootstrap…) | — | `archive/` (not deployed) |
@@ -27,8 +28,9 @@ gh repo clone wwchen/dotfiles ~/code/wwchen/dotfiles
 cd ~/code/wwchen/dotfiles && just apply
 ```
 
-`just apply` installs the core apps (`brew/Brewfile.core`) and sets them up. It shows what it
-would change and asks before doing anything. The first run asks machine type and email, once.
+`just apply` installs this Mac's apps (`brew/`) and sets them up. It shows what it
+would change and asks before doing anything. The first run asks machine type, email and dev
+tools, once.
 
 An app's setup in `home/` is tied to the Brewfile entry that installs it: the iTerm2 profile
 and settings only exist on Macs whose Brewfiles list `cask "iterm2"`, starship's only with
@@ -45,6 +47,7 @@ check fails, asking first unless `ask: false`; add a step there instead of editi
 just              # fuzzy-pick a command (or `just -l` to list, `just <Tab>` to complete)
 just diff         # what would change in ~
 just apply        # show what would change, confirm, apply (`just apply -y` skips the question)
+just brew-sync    # installed something by hand? add it to a Brewfile (or ignore/uninstall)
 just iterm-export # tweaked iTerm2's "Default" profile in Settings? save it to the repo
 ```
 
