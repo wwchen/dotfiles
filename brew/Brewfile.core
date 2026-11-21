@@ -1,4 +1,4 @@
-# Core: every Mac. Install with `brew bundle --file=brew/Brewfile.core`.
+# Core apps, on every Mac.
 
 # --- shell & CLI ---
 brew "chezmoi"
