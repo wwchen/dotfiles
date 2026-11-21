@@ -72,6 +72,15 @@ services:
       - teslamateapi-data:/opt/app/data
     depends_on: [database, teslamate, mosquitto]
 {% endif %}
+{% if teslamate_cloudflared_enabled %}
+
+  cloudflared:
+    image: {{ teslamate_cloudflared_image }}
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+{% endif %}
 
 volumes:
   teslamate-db:

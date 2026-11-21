@@ -6,5 +6,10 @@ secrets/*.yaml
 !secrets/infra.example.yaml
 secrets/.tmp-*
 
+# OpenTofu (state is committed, encrypted)
+infra/cloudflare/.terraform/
+infra/cloudflare/*.tfplan
+infra/cloudflare/generated/
+
 # Ansible
 infra/ansible/*.retry

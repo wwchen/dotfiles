@@ -12,6 +12,16 @@
       Fill in teslamate.* in secrets/infra.sops.yaml (`just secrets-edit`), without ' or newlines.
     quiet: true
 
+- name: Check the Cloudflare tunnel token
+  ansible.builtin.assert:
+    that: teslamate_cloudflared_token | length > 0
+    fail_msg: >-
+      teslamate_cloudflared_enabled is true but no tunnel token was found for {{ inventory_hostname }}.
+      Run through `just pi-apply` (it reads the token from OpenTofu). Applying without it would
+      remove the running cloudflared and take the public hostname offline.
+    quiet: true
+  when: teslamate_cloudflared_enabled
+
 - name: Create TeslaMate directories
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -75,8 +85,7 @@
     project_src: "{{ teslamate_dir }}"
     state: present
     pull: missing
-    # Leave containers not in this file running (e.g. a hand-started cloudflared).
-    remove_orphans: false
+    remove_orphans: true
   ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Schedule nightly backup
