@@ -1,0 +1,13 @@
+# Downloaded on first apply; `chezmoi apply -R` updates them (so applies work offline).
+
+# oh-my-zsh (its own updater is off in .zshrc).
+[".oh-my-zsh"]
+    type = "archive"
+    url = "https://github.com/ohmyzsh/ohmyzsh/archive/master.tar.gz"
+    stripComponents = 1
+
+# vim-sensible (defaults everyone agrees on), loaded by vim's own package support.
+[".vim/pack/plugins/start/vim-sensible"]
+    type = "archive"
+    url = "https://github.com/tpope/vim-sensible/archive/master.tar.gz"
+    stripComponents = 1

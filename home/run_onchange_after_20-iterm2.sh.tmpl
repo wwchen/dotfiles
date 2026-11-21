@@ -1,0 +1,10 @@
+{{- if stat "/Applications/iTerm.app" -}}
+#!/bin/bash
+# iTerm2 app settings (the profile itself is DynamicProfiles/wc.json).
+set -euo pipefail
+GUID="B5E1D3A0-7C7E-4B8E-9D55-5C1F0E6A2E01"   # the 'wc' profile; scripts/iterm-export uses it too
+defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "$GUID"
+defaults write com.googlecode.iterm2 DimInactiveSplitPanes -bool false
+defaults write com.googlecode.iterm2 ClickToSelectCommand -bool false
+if pgrep -xq iTerm2; then echo "iTerm2 is running: restart it to pick up its settings."; fi
+{{ end -}}

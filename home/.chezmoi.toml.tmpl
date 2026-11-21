@@ -1,13 +1,14 @@
 {{- /* Asked once on `chezmoi init`; answers are saved in ~/.config/chezmoi/chezmoi.toml. */ -}}
-{{- $machine := promptChoiceOnce . "machine" "Machine type" (list "personal" "work") "personal" -}}
 {{- $email := promptStringOnce . "email" "Git email for this machine" "github@iamchen.com" -}}
 
 sourceDir = {{ .chezmoi.workingTree | quote }}
 
 [data]
     name = "William Chen"
-    machine = {{ $machine | quote }}
     email = {{ $email | quote }}
 
+# oh-my-zsh (an external) would otherwise list every file it has.
 [diff]
-    exclude = ["scripts"]
+    exclude = ["externals"]
+[status]
+    exclude = ["externals"]

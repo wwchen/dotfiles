@@ -2,3 +2,6 @@ README.md
 {{- if ne .chezmoi.os "darwin" }}
 Library
 {{- end }}
+{{- if not (stat "/Applications/iTerm.app") }}
+Library/Application Support/iTerm2
+{{- end }}
