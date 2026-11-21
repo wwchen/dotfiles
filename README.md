@@ -4,33 +4,28 @@ One repo for setting up my Macs and managing my remote boxes.
 
 | What | Tool | Where |
 |---|---|---|
+| Mac apps & CLIs, in groups | [Homebrew Bundle](https://docs.brew.sh/Brew-Bundle-and-Brewfile) | `brew/Brewfile.<group>` |
 | Old configs (irssi, screen, 2013 bootstrap…) | — | `archive/` (not deployed) |
 
 ## Getting started
 
-On a new Mac, run these one at a time:
+On a new Mac, one at a time:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Homebrew, then each Brewfile (lists it, asks Y/n), core first
+curl -fsSL https://raw.githubusercontent.com/wwchen/dotfiles/master/brew-install.sh | bash
 
-# What the rest of setup needs
-brew install chezmoi just gh
-
-# Log in to GitHub, then clone
+# Clone, in a new terminal tab (it has Homebrew on PATH)
 gh auth login
-gh repo clone wwchen/dotfiles ~/code/wwchen/dotfiles
-
-# Set up this Mac
-cd ~/code/wwchen/dotfiles && just apply
+gh repo clone wwchen/dotfiles ~/code/wwchen/dotfiles && cd ~/code/wwchen/dotfiles
 ```
-
-`just apply` shows what it would change and asks before doing anything. The first run asks
-machine type and email, once.
 
 ## Day to day
 
 ```bash
-just              # fuzzy-pick a command (or `just -l` to list, `just <Tab>` to complete)
-just diff         # what would change in ~
-just apply        # show what would change, confirm, apply (`just apply -y` skips the question)
+./brew-install.sh dev                               # one group again (-y: no question)
+brew bundle add --file=brew/Brewfile.dev ripgrep   # track + install something new (--cask for apps)
+brew bundle remove --file=brew/Brewfile.dev ripgrep
+brew bundle check --file=brew/Brewfile.core         # anything missing?
+cat brew/Brewfile.* | brew bundle cleanup --file=-          # installed but in no Brewfile (--force uninstalls)
 ```
