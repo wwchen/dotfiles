@@ -1,1 +1,10 @@
 .DS_Store
+
+# sops: only the encrypted file is committed
+secrets/*.yaml
+!secrets/*.sops.yaml
+!secrets/infra.example.yaml
+secrets/.tmp-*
+
+# Ansible
+infra/ansible/*.retry

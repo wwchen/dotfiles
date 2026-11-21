@@ -1,0 +1,32 @@
+#!/bin/bash
+# Managed by Ansible. Restore TeslaMate: ./restore.sh <backup.dump (pg_dump -Fc) | old .bak (SQL)>
+set -euo pipefail
+[[ -s "${1:?usage: restore.sh <backup file>}" ]] || { echo "no such backup: $1" >&2; exit 1; }
+file="$(realpath "$1")"   # absolute: we cd below
+cd {{ teslamate_dir | quote }}
+
+# Check the format before touching the database.
+if head -c 5 "$file" | grep -q PGDMP; then fmt=custom; else fmt=sql; fi
+
+read -r -p "This replaces the current TeslaMate database with $file. Continue? [y/N] " ans
+[[ "$ans" =~ ^[Yy]$ ]] || exit 1
+
+docker compose stop teslamate
+# Always restart TeslaMate on exit.
+trap 'docker compose start teslamate >/dev/null' EXIT
+docker compose exec -T database psql -v ON_ERROR_STOP=1 -U {{ teslamate_db_user }} {{ teslamate_db_name }} <<'SQL'
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+CREATE EXTENSION cube WITH SCHEMA public;
+CREATE EXTENSION earthdistance WITH SCHEMA public;
+SQL
+
+if [[ $fmt == custom ]]; then
+  # pg_restore also fails on harmless errors ("already exists").
+  if ! docker compose exec -T database pg_restore -U {{ teslamate_db_user }} -d {{ teslamate_db_name }} --no-owner < "$file"; then
+    echo "pg_restore reported errors (see above); often harmless, but check TeslaMate's data." >&2
+  fi
+else
+  docker compose exec -T database psql -v ON_ERROR_STOP=1 -U {{ teslamate_db_user }} -d {{ teslamate_db_name }} < "$file"
+fi
+echo "Restored from $file; starting TeslaMate."

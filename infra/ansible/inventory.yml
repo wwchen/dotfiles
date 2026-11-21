@@ -1,0 +1,14 @@
+# Reached over Tailscale SSH (MagicDNS names).
+all:
+  children:
+    pis:
+      hosts:
+        pi-tx:
+          ansible_host: pi-tx
+          ansible_user: admin
+        # pi-tw:            # not yet
+        #   ansible_host: pi-tw
+        #   ansible_user: admin
+    teslamate:
+      hosts:
+        pi-tx:

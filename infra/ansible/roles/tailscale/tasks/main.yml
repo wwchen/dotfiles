@@ -1,0 +1,67 @@
+---
+# ignore_errors in check mode: see roles/docker.
+
+- name: Add Tailscale apt repository
+  ansible.builtin.deb822_repository:
+    name: tailscale
+    types: deb
+    uris: https://pkgs.tailscale.com/stable/debian
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: main
+    signed_by: "https://pkgs.tailscale.com/stable/debian/{{ ansible_facts['distribution_release'] }}.noarmor.gpg"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Install Tailscale
+  ansible.builtin.apt:
+    name: tailscale
+    update_cache: true
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Enable IP forwarding (exit node)
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: "1"
+    sysctl_file: /etc/sysctl.d/99-tailscale.conf
+  loop: [net.ipv4.ip_forward, net.ipv6.conf.all.forwarding]
+
+- name: Read Tailscale state
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Join the tailnet
+  when: >-
+    tailscale_status.rc != 0 or
+    (tailscale_status.stdout | from_json).BackendState != 'Running'
+  block:
+    # An empty key would hang on interactive login.
+    - name: Check the auth key is set
+      ansible.builtin.assert:
+        that: secrets.tailscale.authkey | default('') | length > 0
+        fail_msg: Set tailscale.authkey in secrets/infra.sops.yaml (`just secrets-edit`).
+        quiet: true
+
+    # From a file, so it stays out of the process list.
+    - name: Stage the auth key
+      ansible.builtin.copy:
+        dest: /run/tailscale-authkey
+        content: "{{ secrets.tailscale.authkey }}"
+        mode: "0600"
+      no_log: true
+
+    - name: Run tailscale up
+      ansible.builtin.command: "tailscale up --auth-key=file:/run/tailscale-authkey --timeout=120s {{ tailscale_up_args }}"
+      changed_when: true
+
+  always:
+    - name: Remove the staged auth key
+      ansible.builtin.file:
+        path: /run/tailscale-authkey
+        state: absent
+
+# Apply tailscale_up_args on an already-joined node too (silent, so never "changed").
+- name: Apply Tailscale settings
+  ansible.builtin.command: "tailscale set {{ tailscale_up_args }}"
+  changed_when: false

@@ -1,0 +1,35 @@
+---
+teslamate_user: "{{ ansible_user }}"
+teslamate_dir: "/home/{{ teslamate_user }}/teslamate"
+
+# Pinned; see https://docs.teslamate.org/docs/upgrading before bumping.
+teslamate_version: "4.5.0"
+teslamate_postgres_image: postgres:18-trixie
+teslamate_mosquitto_image: eclipse-mosquitto:2
+teslamate_api_enabled: false
+teslamate_api_image: tobiasehlert/teslamateapi:1.25.0
+
+teslamate_tz: America/New_York
+teslamate_bind_address: 127.0.0.1
+teslamate_grafana_root_url: ""
+# Grafana without a login: only behind something that authenticates.
+teslamate_grafana_anonymous: false
+teslamate_db_user: teslamate
+teslamate_db_name: teslamate
+
+teslamate_custom_dashboards_repo: https://github.com/jheredianet/Teslamate-CustomGrafanaDashboards.git
+teslamate_custom_dashboards_version: main
+
+teslamate_backup_mount: /mnt/usb1
+# e.g. "UUID=1234-ABCD" (`lsblk -f`) to have Ansible mount it; empty = you manage the mount.
+teslamate_backup_mount_src: ""
+teslamate_backup_mount_fstype: ext4
+teslamate_backup_dir: "{{ teslamate_backup_mount }}/rpi-backup/teslamate"
+teslamate_backup_keep_days: 14
+teslamate_backup_hour: 3
+
+# Values written to .env, checked for ' and newlines.
+teslamate_env_values:
+  - "{{ secrets.teslamate.encryption_key }}"
+  - "{{ secrets.teslamate.db_password }}"
+  - "{{ secrets.teslamate.api_token | default('') }}"

@@ -6,6 +6,8 @@ My Macs and remote boxes.
 |---|---|---|
 | Mac apps | [Homebrew Bundle](https://docs.brew.sh/Brew-Bundle-and-Brewfile) | `brew/Brewfile.<group>` |
 | Dotfiles (zsh, git, vim, ssh, iTerm2) | [chezmoi](https://chezmoi.io) | `home/` |
+| Raspberry Pis | Ansible | `infra/ansible/` |
+| Secrets | sops + age | `secrets/` |
 | Old configs | — | `archive/` (not deployed) |
 
 ## New Mac
@@ -40,3 +42,20 @@ just iterm-export                                    # after editing iTerm2's De
 Edit with `chezmoi edit` (or in `home/`), not in `~`. Per-machine: `~/.zshrc.local`, `~/.gitconfig`.
 With Tailscale installed, `chezmoi apply` puts SSH aliases from `home/.chezmoidata/ssh.yaml`
 in a marked section at the top of `~/.ssh/config` (`ssh pi-tx`); the rest of that file is kept.
+
+## Remote infra
+
+Needs `./brew-install.sh infra` and the age key from your password manager:
+`mkdir -p ~/.config/sops/age && (umask 077; set -C; pbpaste > ~/.config/sops/age/keys.txt)`
+
+```bash
+just secrets-init      # once
+just secrets-edit
+just pi-check pi-tx    # dry run
+just pi-apply pi-tx
+```
+
+Reflashed Pi (Raspberry Pi OS Lite, user `admin`, your SSH key): remove the old pi-tx from
+Tailscale, then `just pi-apply pi-tx -e ansible_host=<LAN IP>`. Give `admin` an `accept` SSH rule
+in the tailnet policy, or every run waits for a browser re-auth. TeslaMate's UIs listen on
+127.0.0.1 (use `ssh -L`).

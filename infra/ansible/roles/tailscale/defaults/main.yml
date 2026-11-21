@@ -1,0 +1,2 @@
+---
+tailscale_up_args: "--ssh --advertise-exit-node --hostname={{ inventory_hostname }}"

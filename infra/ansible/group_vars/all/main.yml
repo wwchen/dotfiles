@@ -1,0 +1,3 @@
+---
+# Keys for plain SSH (LAN fallback); others are removed from authorized_keys.
+base_authorized_keys: []
