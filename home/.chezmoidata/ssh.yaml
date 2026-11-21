@@ -1,0 +1,5 @@
+# SSH aliases for machines on the tailnet (MagicDNS names), written to the top of ~/.ssh/config
+# when Tailscale is installed. user: who to log in as.
+ssh_hosts:
+  pi-tx:
+    user: admin

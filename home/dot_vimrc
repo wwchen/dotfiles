@@ -1,0 +1,22 @@
+" Managed by chezmoi: edit home/dot_vimrc, then `chezmoi apply`.
+" vim-sensible (home/.chezmoiexternal.toml) sets the usual defaults; these are my own.
+colorscheme elflord
+
+set number cursorline showcmd
+set linebreak textwidth=0 wrapmargin=0
+set autoindent expandtab tabstop=2 shiftwidth=2
+set ignorecase smartcase hlsearch showmatch
+
+" fzf's vim plugin ships with Homebrew's fzf (Brewfile.core)
+for s:fzf in ['/opt/homebrew/opt/fzf', '/usr/local/opt/fzf']
+  if isdirectory(s:fzf)
+    execute 'set rtp+=' . s:fzf
+    break
+  endif
+endfor
+
+nnoremap <silent> <leader>o :FZF<CR>
+nnoremap <silent> <leader>p :Lexplore<CR>
+nnoremap <silent> <leader>ss :setlocal spell! spelllang=en_us<CR>
+nnoremap <silent> <leader>ev :edit $MYVIMRC<CR>
+nnoremap <silent> <leader>sv :source $MYVIMRC<CR>

@@ -1,0 +1,21 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /* ~/.ssh/config stays yours. With Tailscale installed, a marked section at the top holds the
+       aliases from home/.chezmoidata/ssh.yaml; it's replaced on every apply. */ -}}
+{{- $begin := "# >>> chezmoi: tailnet hosts (home/.chezmoidata/ssh.yaml) >>>" -}}
+{{- $end := "# <<< chezmoi <<<" -}}
+{{- $rest := regexReplaceAll (printf "(?s)%s.*?%s\n*" (regexQuoteMeta $begin) (regexQuoteMeta $end)) .chezmoi.stdin "" -}}
+{{- if or (stat "/Applications/Tailscale.app") (lookPath "tailscale") -}}
+{{ $begin }}
+{{- range $name, $h := .ssh_hosts }}
+Host {{ $name }}
+    HostName {{ get $h "hostname" | default $name }}
+{{-   with get $h "user" }}
+    User {{ . }}
+{{-   end }}
+{{- end }}
+# What follows applies to every host again, as before this section was added.
+Host *
+{{ $end }}
+
+{{ end -}}
+{{- $rest -}}

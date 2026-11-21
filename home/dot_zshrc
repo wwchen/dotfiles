@@ -1,0 +1,35 @@
+# Managed by chezmoi: edit home/dot_zshrc, then `chezmoi apply`. Local additions: ~/.zshrc.local.
+
+# Homebrew's environment, unless ~/.zprofile already set it (Apple Silicon or Intel).
+if [[ -z "$HOMEBREW_PREFIX" ]]; then
+  for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    if [[ -x "$b" ]]; then eval "$("$b" shellenv zsh)"; break; fi
+  done
+fi
+
+# oh-my-zsh (home/.chezmoiexternal.toml)
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME=""            # prompt comes from starship
+plugins=(git)
+zstyle ':omz:update' mode disabled
+[[ -f "$ZSH/oh-my-zsh.sh" ]] && source "$ZSH/oh-my-zsh.sh"
+
+if [[ -f "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]]; then
+  source "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+  ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+fi
+
+alias reload='source ~/.zshrc'
+alias zshrc='chezmoi edit --apply ~/.zshrc && reload'
+
+setopt no_share_history
+setopt no_nomatch
+setopt no_extended_glob
+setopt no_glob
+
+# openjdk@25 is keg-only: not on PATH by default
+[[ -d "$HOMEBREW_PREFIX/opt/openjdk@25/bin" ]] && export PATH="$HOMEBREW_PREFIX/opt/openjdk@25/bin:$PATH"
+
+[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
+
+command -v starship >/dev/null && eval "$(starship init zsh)"

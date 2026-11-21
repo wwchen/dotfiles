@@ -9,6 +9,12 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 default:
     @if command -v fzf >/dev/null && [ -t 0 ]; then just --choose; else just --list --unsorted; fi
 
+# Save iTerm2's "Default" profile into the repo
+[group('mac')]
+iterm-export profile="Default":
+    scripts/iterm-export "{{ profile }}"
+    @echo "Next: git diff to review, then 'chezmoi apply' to load it into iTerm2."
+
 # Lint shell scripts
 [group('checks')]
 lint:

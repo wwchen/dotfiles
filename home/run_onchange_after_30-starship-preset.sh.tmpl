@@ -1,0 +1,9 @@
+{{- $starship := lookPath "starship" -}}
+{{- if $starship -}}
+#!/bin/bash
+# ~/.config/starship.toml from a built-in preset (`starship preset --list`).
+set -euo pipefail
+PRESET="nerd-font-symbols"   # needs a Nerd Font
+mkdir -p ~/.config
+{{ $starship | quote }} preset "$PRESET" > ~/.config/starship.toml
+{{ end -}}

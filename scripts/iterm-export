@@ -1,0 +1,47 @@
+#!/bin/bash
+# Save an iTerm2 profile (default: "Default") into the repo as the managed "wc" profile.
+# Tweak "Default" in Settings, not "wc": iTerm2 doesn't save edits to dynamic profiles.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OUT="$ROOT/home/Library/Application Support/iTerm2/DynamicProfiles/wc.json"
+GUID="B5E1D3A0-7C7E-4B8E-9D55-5C1F0E6A2E01"   # must match home/run_onchange_after_20-iterm2.sh.tmpl
+want="${1:-Default}"
+
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+defaults export com.googlecode.iterm2 "$tmp/prefs.plist"
+plutil -extract "New Bookmarks" json -o "$tmp/static.json" "$tmp/prefs.plist"
+
+# Include dynamic profiles, so "wc" itself can be exported.
+dyn="$HOME/Library/Application Support/iTerm2/DynamicProfiles/wc.json"
+[[ -f "$dyn" ]] || dyn=/dev/null
+
+# Only settings that differ from iTerm2's factory profile are saved.
+FACTORY=/Applications/iTerm.app/Contents/Resources/DefaultBookmark.plist
+if [[ -f "$FACTORY" ]]; then
+  plutil -convert json -o "$tmp/factory.json" "$FACTORY"
+else
+  echo "iTerm2 not found at /Applications/iTerm.app; saving the full profile instead of a diff." >&2
+  echo '{}' > "$tmp/factory.json"
+fi
+
+python3 - "$tmp/static.json" "$dyn" "$OUT" "$GUID" "$want" "$tmp/factory.json" <<'PY'
+import json, sys
+static_path, dyn_path, out, guid, want, factory_path = sys.argv[1:]
+profiles = json.load(open(static_path))
+if dyn_path != "/dev/null":
+    profiles += json.load(open(dyn_path)).get("Profiles", [])
+match = [p for p in profiles if p.get("Name") == want]
+if not match:
+    sys.exit(f"profile not found: {want}; have: {[p.get('Name') for p in profiles]}")
+factory = json.load(open(factory_path))
+# Identity, bookkeeping and machine-specific keys are never saved.
+SKIP = {"Name", "Guid", "Description", "Default Bookmark", "Working Directory",
+        "Dynamic Profile Filename", "Dynamic Profile Parent Name", "Dynamic Profile Parent GUID"}
+p = {k: v for k, v in match[0].items() if k not in SKIP and factory.get(k) != v}
+# Anything omitted is inherited from "Default".
+p.update({"Name": "wc", "Guid": guid, "Dynamic Profile Parent Name": "Default"})
+json.dump({"Profiles": [p]}, open(out, "w"), indent=2, sort_keys=True)
+open(out, "a").write("\n")
+print(f"wrote {out}: {len(p) - 3} settings that differ from iTerm2's defaults")
+PY
