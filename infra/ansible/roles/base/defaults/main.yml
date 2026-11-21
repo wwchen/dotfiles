@@ -1,0 +1,16 @@
+---
+base_user: "{{ ansible_user }}"
+# python3-debian: for deb822_repository.
+base_packages: [git, vim, curl, tmux, htop, jq, rsync, unattended-upgrades, ufw, python3-debian]
+# Packages to purge, e.g. [samba].
+base_purge_packages: []
+base_authorized_keys: []
+base_firewall: true
+# Plain SSH is also allowed from here; defaults to the Pi's own LAN.
+base_lan_net: "{{ ansible_facts.default_ipv4 | default({}) }}"
+# Netmask octet -> prefix bits, when facts lack `prefix`.
+base_netmask_bits: {"255": 8, "254": 7, "252": 6, "248": 5, "240": 4, "224": 3, "192": 2, "128": 1, "0": 0}
+base_lan_prefix: "{{ base_lan_net.prefix | default(base_lan_net.netmask.split('.') | map('extract', base_netmask_bits) | sum) }}"
+base_lan_cidr: >-
+  {{ (base_lan_net.network ~ '/' ~ base_lan_prefix)
+     if (base_lan_net.network is defined and base_lan_net.netmask is defined) else '192.168.0.0/16' }}

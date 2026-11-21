@@ -1,0 +1,87 @@
+---
+# ignore_errors in check mode: see roles/docker.
+
+- name: Check secrets are present and safe to write to .env
+  ansible.builtin.assert:
+    that:
+      - secrets.teslamate.encryption_key | default('') | length > 0
+      - secrets.teslamate.db_password | default('') | length > 0
+      # .env values are single-quoted, so they can't hold ' or newlines.
+      - teslamate_env_values | select('search', "['\\n]") | list | length == 0
+    fail_msg: >-
+      Fill in teslamate.* in secrets/infra.sops.yaml (`just secrets-edit`), without ' or newlines.
+    quiet: true
+
+- name: Create TeslaMate directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ teslamate_dir }}", mode: "0750" }
+    # Read by the container's non-root user.
+    - { path: "{{ teslamate_dir }}/import", mode: "0755" }
+
+- name: Fetch custom Grafana dashboards
+  ansible.builtin.git:
+    repo: "{{ teslamate_custom_dashboards_repo }}"
+    dest: "{{ teslamate_dir }}/Teslamate-CustomGrafanaDashboards"
+    version: "{{ teslamate_custom_dashboards_version }}"
+    depth: 1
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Write .env (secrets)
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ teslamate_dir }}/.env"
+    mode: "0600"
+  diff: false
+
+- name: Write docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ teslamate_dir }}/docker-compose.yml"
+    mode: "0640"
+
+- name: Install backup and restore scripts
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "{{ teslamate_dir }}/{{ item }}"
+    mode: "0750"
+  loop: [backup.sh, restore.sh]
+  diff: false   # backup.sh embeds the healthchecks URL
+
+- name: Mount the backup drive
+  ansible.posix.mount:
+    path: "{{ teslamate_backup_mount }}"
+    src: "{{ teslamate_backup_mount_src }}"
+    fstype: "{{ teslamate_backup_mount_fstype }}"
+    opts: defaults,nofail
+    state: mounted
+  become: true
+  when: teslamate_backup_mount_src | length > 0
+
+- name: Create the backup directory (owned by the user cron runs as)
+  ansible.builtin.file:
+    path: "{{ teslamate_backup_dir }}"
+    state: directory
+    owner: "{{ teslamate_user }}"
+    group: "{{ teslamate_user }}"
+    mode: "0750"
+  become: true
+
+- name: Run the stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ teslamate_dir }}"
+    state: present
+    pull: missing
+    # Leave containers not in this file running (e.g. a hand-started cloudflared).
+    remove_orphans: false
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Schedule nightly backup
+  ansible.builtin.cron:
+    name: teslamate backup
+    minute: "0"
+    hour: "{{ teslamate_backup_hour }}"
+    job: "{{ teslamate_dir }}/backup.sh >> {{ teslamate_dir }}/backup.log 2>&1"

@@ -1,0 +1,4 @@
+---
+- name: Restart sshd
+  ansible.builtin.shell: sshd -t && systemctl restart ssh
+  changed_when: true

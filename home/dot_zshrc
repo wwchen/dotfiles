@@ -30,6 +30,9 @@ setopt no_glob
 # openjdk@25 is keg-only: not on PATH by default
 [[ -d "$HOMEBREW_PREFIX/opt/openjdk@25/bin" ]] && export PATH="$HOMEBREW_PREFIX/opt/openjdk@25/bin:$PATH"
 
+# sops' macOS default is ~/Library/Application Support/sops/age; the key lives in ~/.config
+export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
+
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
 
 command -v starship >/dev/null && eval "$(starship init zsh)"

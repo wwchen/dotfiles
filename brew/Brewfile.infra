@@ -1,0 +1,6 @@
+# Remote infra tools (infra/), for the Mac you manage them from.
+
+brew "age"
+brew "ansible"
+brew "ansible-lint"
+brew "sops"

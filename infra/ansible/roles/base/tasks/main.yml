@@ -1,0 +1,78 @@
+---
+- name: Install base packages
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Purge unwanted packages
+  ansible.builtin.apt:
+    name: "{{ base_purge_packages }}"
+    state: absent
+    purge: true
+  when: base_purge_packages | length > 0
+
+- name: Enable unattended security upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+- name: Harden sshd
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-managed.conf
+    mode: "0644"
+    content: |
+      # Managed by Ansible (infra/ansible/roles/base)
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+  notify: Restart sshd
+
+# Only when keys are listed: the first run after a reflash may be using one.
+- name: Manage authorized_keys (exactly the keys in base_authorized_keys)
+  when: base_authorized_keys | length > 0
+  block:
+    - name: Ensure ~/.ssh exists
+      ansible.builtin.file:
+        path: "/home/{{ base_user }}/.ssh"
+        state: directory
+        owner: "{{ base_user }}"
+        group: "{{ base_user }}"
+        mode: "0700"
+
+    - name: Write authorized_keys
+      ansible.builtin.copy:
+        dest: "/home/{{ base_user }}/.ssh/authorized_keys"
+        owner: "{{ base_user }}"
+        group: "{{ base_user }}"
+        mode: "0600"
+        content: "{{ base_authorized_keys | join('\n') ~ '\n' }}"
+
+- name: Firewall
+  when: base_firewall
+  block:
+    - name: Allow everything on the Tailscale interface
+      community.general.ufw:
+        rule: allow
+        direction: in
+        interface: tailscale0
+
+    - name: Allow SSH from the LAN
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+        src: "{{ base_lan_cidr }}"
+
+    - name: Deny other inbound traffic and enable ufw
+      community.general.ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+# Restart sshd now: a later failure would drop the handler for good.
+- name: Apply sshd changes now
+  ansible.builtin.meta: flush_handlers
